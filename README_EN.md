@@ -1,12 +1,12 @@
-# extera_max
+# ExteraMax
 
 <p align="center">
   <b>English version</b> | <a href="README.md"><b>Русская версия</b></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/MaxExteraPlugins/extera_max/releases/latest">
-    <img src="https://img.shields.io/github/v/release/MaxExteraPlugins/extera_max?style=flat-square&color=blue" alt="Release Version"/>
+  <a href="https://github.com/MaxExteraPlugins/ExteraMax/releases/latest">
+    <img src="https://img.shields.io/github/v/release/MaxExteraPlugins/ExteraMax?style=flat-square&color=blue" alt="Release Version"/>
   </a>
   <img src="https://img.shields.io/badge/exteraGram-%3E%3D12.10.6-orange?style=flat-square" alt="exteraGram"/>
   <img src="https://img.shields.io/badge/AyuGram-%3E%3D12.10.6-blueviolet?style=flat-square" alt="AyuGram"/>
@@ -27,8 +27,8 @@ All-in-one comprehensive tweak suite and feature enhancer for ExteraGram.
 
 ## 📥 Installation
 
-1. Navigate to the [**Releases**](https://github.com/MaxExteraPlugins/extera_max/releases/latest) section.
-2. Download the `extera_max_v1.5.21.plugin` file.
+1. Navigate to the [**Releases**](https://github.com/MaxExteraPlugins/ExteraMax/releases/latest) section.
+2. Download the `ExteraMax_v1.5.22.plugin` file.
 3. Send the file to your Telegram Saved Messages or open it via file manager in exteraGram / AyuGram.
 4. Tap the file in Telegram and choose **"Install plugin"**.
 
