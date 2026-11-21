@@ -62,7 +62,7 @@ __id__ = "ExteraMax"
 __name__ = "ExteraMax"
 __description__ = "[EN]: Updated version of the «re:extera» plugin («ghost» mode, spy features, message filters, and much more).\n\n[RU]: Обновленная версия плагина «re:extera» (режим «призрака», функции шпиона, фильтры сообщений и многое другое)."
 __author__ = "@itNotMax - @MaxExteraPlugins"
-__version__ = "1.5.22"
+__version__ = "1.5.26"
 __icon__ = "MaxExteraPluginsStickers/30"
 __min_version__ = "12.10.6"
 __app_version__ = ">=12.8.1"
@@ -75,7 +75,6 @@ PREFS_NAME = "exteramax_prefs"
 PRESENCE_KEY = "presence_data"
 PREMIUM_CACHE_KEY = "premium_cache"
 FLAG_DELETED = 1 << 16
-UPDATE_JSON_URL = "https://api.github.com/repos/ExteraMax/Public/contents/changelogs"
 
 READ_REQS = frozenset(["TL_messages_readHistory", "TL_messages_readEncryptedHistory",
              "TL_messages_readDiscussion", "TL_messages_readMessageContents",
@@ -88,7 +87,7 @@ SEND_REQS = frozenset(["TL_messages_sendMessage", "TL_messages_sendMedia",
 ONLINE_REQS = READ_REQS | TYPING_REQS | STORIES_REQS | SEND_REQS | frozenset([
               "TL_messages_editMessage", "TL_stories_sendStory",
               "TL_stories_sendReaction", "updateStatus", "TL_account_updateStatus"])
-BLOCKED_AD_REQS = frozenset(["TL_help_getPromoData"])
+BLOCKED_AD_REQS = frozenset()
 DELETE_REQS = frozenset(["TL_messages_deleteMessages", "TL_channels_deleteMessages"])
 PRESENCE_UPD = frozenset(["TL_updateUserStatus", "TL_updateUserTyping", "TL_updateChatUserTyping",
                 "TL_updateChannelUserTyping", "TL_updateReadHistoryOutbox",
@@ -201,6 +200,9 @@ class L:
         "close": "Закрыть", "back": "Назад", "saved": "Сохранено",
         "view_deleted": "Посмотреть удалёнки", "no_deleted": "Нет удалённых сообщений",
         "purge_deleted": "Очистить удалёнки", "purge_deleted_confirm": "Удалить все сохранённые удалёнки этого чата?", "purged": "Удалёнки очищены",
+        "clear_all_deleted": "Очистить ВСЕ удалёнки", "clear_all_deleted_sub": "Полный сброс базы сохранённых удалённых сообщений",
+        "clear_all_deleted_confirm": "Вы уверены, что хотите полностью очистить данные обо ВСЕХ сохранённых удалённых сообщениях во всех чатах? Все удалёнки будут сброшены.", "all_deleted_cleared": "Все сохранённые удалёнки очищены",
+        "sync_all_chats": "Синхронизировать все чаты", "sync_all_chats_sub": "Перезагрузить последние сообщения из облака во всех чатах",
         "menu_reextera": "MAX re:extera",
         "deleted_list": "Удалённые сообщения", "msg_deleted": "удалено",
         "add": "Добавить", "remove": "Удалить?", "removed": "Удалён",
@@ -346,6 +348,9 @@ class L:
         "close": "Close", "back": "Back", "saved": "Saved",
         "view_deleted": "View deleted", "no_deleted": "No deleted messages",
         "purge_deleted": "Clear deleted", "purge_deleted_confirm": "Delete all saved deleted messages of this chat?", "purged": "Deleted cleared",
+        "clear_all_deleted": "Clear ALL deleted", "clear_all_deleted_sub": "Completely reset saved deleted messages database",
+        "clear_all_deleted_confirm": "Are you sure you want to completely clear all saved deleted messages across all chats? All deleted records will be reset.", "all_deleted_cleared": "All saved deleted messages cleared",
+        "sync_all_chats": "Sync all chats", "sync_all_chats_sub": "Reload recent messages from cloud across all chats",
         "menu_reextera": "MAX re:extera",
         "deleted_list": "Deleted messages", "msg_deleted": "deleted",
         "add": "Add", "remove": "Remove?", "removed": "Removed",
@@ -2164,6 +2169,14 @@ class Vault:
             ops.append(("DELETE FROM removed WHERE dialog_id=? AND message_id=?", (int(did), int(mid))))
         self._db(ops)
 
+    def clear_all_removed(self):
+        try:
+            self._removed.clear()
+            self._removed_ts.clear()
+            self._db([("DELETE FROM removed", ())])
+        except Exception as e:
+            log(f"[MAX] clear_all_removed: {e}")
+
     def has_revisions(self, did, mid):
         return any(int(r.get("ver", 0)) > 0 for r in self._revisions.get((int(did), int(mid)), []))
 
@@ -3720,10 +3733,6 @@ class MaxReExteraPlugin(BasePlugin):
     def _ensure_offline(self):
         if not self._is_ghost() or not self.get_setting("ghost_no_online", True):
             return
-        try:
-            ConnectionsManager.getInstance(int(UserConfig.selectedAccount)).checkConnection()
-        except Exception:
-            pass
         self.sendOffline()
 
     def _offline_burst(self):
@@ -3979,7 +3988,6 @@ class MaxReExteraPlugin(BasePlugin):
         threading.Thread(target=_ui_hooks, daemon=True, name="MAX-hooks").start()
         threading.Thread(target=self._loop, daemon=True).start()
         threading.Timer(1.5, self._restore_presence_statuses).start()
-        self._check_for_updates()
 
     def on_app_event(self, event_type):
         if hasattr(self, "_author_helper"):
@@ -4155,16 +4163,6 @@ class MaxReExteraPlugin(BasePlugin):
                     if not self._keep_alive_active:
                         run_on_ui_thread(self._start_keep_alive)
                     if _time.time() - self._last_offline_push >= 20:
-                        try:
-                            for acc in range(4):
-                                try:
-                                    uc = UserConfig.getInstance(acc)
-                                    if uc and uc.isClientActivated():
-                                        ConnectionsManager.getInstance(acc).checkConnection()
-                                except Exception:
-                                    pass
-                        except Exception:
-                            pass
                         if self._is_ghost():
                             self.sendOffline()
                         self._last_offline_push = _time.time()
@@ -7187,12 +7185,11 @@ class MaxReExteraPlugin(BasePlugin):
         mc = get_messages_controller()
         if mc:
             c = mc.getClass()
-            for n, pc, h in [("checkPromoInfo", 1, PromoNoOpHook()), ("checkPromoInfoInternal", 1, PromoNoOpHook()), ("isPromoDialog", 2, RetF())]:
-                m = _fm(c, n, pc)
-                if m:
-                    u = self.hook_method(m, h)
-                    if u:
-                        self._unhooks.append(u)
+            m = _fm(c, "isPromoDialog", 2)
+            if m:
+                u = self.hook_method(m, RetF())
+                if u:
+                    self._unhooks.append(u)
         video_noop = VideoNoOp()
         for vmethod, vpc, vhook in [("load", 0, VideoAdsLoadHook()), ("schedule", 0, video_noop), ("show", 0, video_noop), ("isPopupShown", 0, RetF())]:
             try:
@@ -7248,27 +7245,6 @@ class MaxReExteraPlugin(BasePlugin):
             should_remove_dialog = promo_dialog is not None or bool(promo_dialog_id)
         except Exception:
             pass
-        try:
-            request_id = _int(_get_field_value(controller, "checkingPromoInfoRequestId", 0), 0)
-            if request_id:
-                try:
-                    controller.getConnectionsManager().cancelRequest(request_id, True)
-                except Exception:
-                    pass
-            _set_field_value(controller, "checkingPromoInfoRequestId", 0)
-        except Exception:
-            pass
-        try:
-            current_time = int(controller.getConnectionsManager().getCurrentTime())
-            next_check_time = current_time + ONE_YEAR_SECONDS
-            _set_field_value(controller, "checkingPromoInfo", False)
-            _set_field_value(controller, "nextPromoInfoCheckTime", next_check_time)
-            _set_field_value(controller, "promoDialogId", 0)
-            _set_field_value(controller, "promoDialogType", 0)
-            _set_field_value(controller, "proxyDialogAddress", None)
-            self._clear_promo_preferences(controller, next_check_time)
-        except Exception:
-            pass
         if should_remove_dialog:
             try:
                 run_on_ui_thread(lambda: self._cleanup_promo_dialog_on_ui(controller))
@@ -7286,46 +7262,14 @@ class MaxReExteraPlugin(BasePlugin):
             _set_field_value(controller, "promoDialog", None)
             _set_field_value(controller, "promoDialogId", 0)
             _set_field_value(controller, "promoDialogType", 0)
-            _set_field_value(controller, "checkingPromoInfo", False)
-            _set_field_value(controller, "checkingPromoInfoRequestId", 0)
-            _set_field_value(controller, "proxyDialogAddress", None)
         except Exception:
             pass
 
     def _clear_promo_preferences(self, controller, next_check_time):
-        seen = set()
-        try:
-            self._clear_promo_preferences_in(controller.getMainSettings(), next_check_time, seen)
-        except Exception:
-            pass
-        try:
-            self._clear_promo_preferences_in(
-                MessagesController.getGlobalMainSettings(),
-                next_check_time,
-                seen,
-            )
-        except Exception:
-            pass
+        pass
 
     def _clear_promo_preferences_in(self, preferences, next_check_time, seen):
-        if preferences is None:
-            return
-        try:
-            key = f"{preferences.getClass().getName()}:{preferences.hashCode()}"
-        except Exception:
-            key = str(id(preferences))
-        if key in seen:
-            return
-        seen.add(key)
-        editor = preferences.edit()
-        editor.putLong("proxy_dialog", 0)
-        editor.putInt("promo_dialog_type", 0)
-        editor.putInt("nextPromoInfoCheckTime", int(next_check_time))
-        editor.remove("proxyDialogAddress")
-        try:
-            editor.commit()
-        except Exception:
-            editor.apply()
+        pass
 
     def on_send_message_hook(self, account, params):
         try:
@@ -7442,30 +7386,31 @@ class MaxReExteraPlugin(BasePlugin):
         if request_name in BLOCKED_AD_REQS and self._gs("hide_ads", True):
             return HookResult(strategy=HookStrategy.CANCEL)
         # Проверка исключений чатов (ExclusionsStore)
-        try:
-            req_did = 0
-            if hasattr(request, "peer") and request.peer:
-                p = request.peer
-                if hasattr(p, "user_id") and p.user_id: req_did = _int(p.user_id)
-                elif hasattr(p, "chat_id") and p.chat_id: req_did = -_int(p.chat_id)
-                elif hasattr(p, "channel_id") and p.channel_id: req_did = -_int(p.channel_id)
-            if req_did:
-                # 0=DEFAULT, 1=ALWAYS, 2=NEVER
-                from com.maxplugins.sample import Main as JMain
-                if request_name in READ_REQS:
-                    r_mode = JMain.ExclusionsStore.getMode(jlong(req_did), True)
-                    if r_mode == 1:
-                        return HookResult()
-                    elif r_mode == 2:
-                        return HookResult(strategy=HookStrategy.CANCEL)
-                elif request_name in TYPING_REQS:
-                    t_mode = JMain.ExclusionsStore.getMode(jlong(req_did), False)
-                    if t_mode == 1:
-                        return HookResult()
-                    elif t_mode == 2:
-                        return HookResult(strategy=HookStrategy.CANCEL)
-        except Exception:
-            pass
+        if request_name in READ_REQS or request_name in TYPING_REQS:
+            try:
+                req_did = 0
+                if hasattr(request, "peer") and request.peer:
+                    p = request.peer
+                    if hasattr(p, "user_id") and p.user_id: req_did = _int(p.user_id)
+                    elif hasattr(p, "chat_id") and p.chat_id: req_did = -_int(p.chat_id)
+                    elif hasattr(p, "channel_id") and p.channel_id: req_did = -_int(p.channel_id)
+                if req_did:
+                    # 0=DEFAULT, 1=ALWAYS, 2=NEVER
+                    from com.maxplugins.sample import Main as JMain
+                    if request_name in READ_REQS:
+                        r_mode = JMain.ExclusionsStore.getMode(jlong(req_did), True)
+                        if r_mode == 1:
+                            return HookResult()
+                        elif r_mode == 2:
+                            return HookResult(strategy=HookStrategy.CANCEL)
+                    elif request_name in TYPING_REQS:
+                        t_mode = JMain.ExclusionsStore.getMode(jlong(req_did), False)
+                        if t_mode == 1:
+                            return HookResult()
+                        elif t_mode == 2:
+                            return HookResult(strategy=HookStrategy.CANCEL)
+            except Exception:
+                pass
 
         if self._factive("ghost_no_read") and request_name in READ_REQS:
             if self._is_whitelisted_peer(request):
@@ -7592,6 +7537,48 @@ class MaxReExteraPlugin(BasePlugin):
             run_on_ui_thread(_do)
         except Exception as e:
             log(f"[MAX] purgeDel: {e}")
+
+    def _on_clear_all_deleted_click(self, ctx=None):
+        try:
+            plugin = self
+            def _do():
+                try:
+                    frag = get_last_fragment()
+                    act = frag.getParentActivity() if frag else None
+                    def on_yes(dlg, w):
+                        dlg.dismiss()
+                        try:
+                            if plugin.vault:
+                                plugin.vault.clear_all_removed()
+                                plugin._invalidate_removed_cache()
+                        except Exception as e:
+                            log(f"[MAX] vault.clear_all_removed: {e}")
+                        try:
+                            if plugin.dex and plugin.dex.loaded:
+                                plugin.dex.call("pyClearAllDeleted")
+                            BulletinHelper.show_info(L.g("all_deleted_cleared"))
+                        except Exception as e:
+                            log(f"[MAX] pyClearAllDeleted: {e}")
+                    d = AlertDialogBuilder(act)
+                    d.set_title(L.g("clear_all_deleted"))
+                    d.set_message(L.g("clear_all_deleted_confirm"))
+                    d.set_positive_button(L.g("yes"), on_yes)
+                    d.set_negative_button(L.g("no"), lambda dlg, w: dlg.dismiss())
+                    d.show()
+                except Exception as e:
+                    log(f"[MAX] clearAllDel: {e}")
+            run_on_ui_thread(_do)
+        except Exception as e:
+            log(f"[MAX] clearAllDel: {e}")
+
+    def _on_sync_all_chats_click(self, ctx=None):
+        try:
+            if self.dex and self.dex.loaded:
+                self.dex.call("pySyncAllChats")
+            else:
+                BulletinHelper.show_info("DEX not loaded")
+        except Exception as e:
+            log(f"[MAX] syncAllChats: {e}")
 
     def _navigate_to_message(self, did, mid):
         did = int(did)
@@ -7919,108 +7906,7 @@ class MaxReExteraPlugin(BasePlugin):
         return None
 
     def _check_for_updates(self):
-        if not self.get_setting("check_updates_on_start", True):
-            return
-        plugin = self
-        def _bg():
-            try:
-                _time.sleep(3.0)
-                listing = plugin._fetch_json_url(UPDATE_JSON_URL)
-                if not isinstance(listing, list):
-                    return
-                versions = []
-                for item in listing:
-                    name = str(item.get("name", ""))
-                    if name.endswith(".json"):
-                        ver = name[:-5]
-                        if all(p.isdigit() for p in ver.split(".")):
-                            versions.append(ver)
-                if not versions:
-                    return
-                max_ver = max(versions, key=lambda v: [int(x) for x in v.split(".")])
-                if plugin._compare_versions(__version__, max_ver) >= 0:
-                    return
-                # --- Bug #5 fix: check last notified version to avoid spam ---
-                last_notified = plugin.get_setting("last_notified_version", "")
-                if last_notified == max_ver:
-                    log(f"[MAX] _check_for_updates: version {max_ver} already notified, skipping")
-                    return
-                # Extra guard: never re-run the whole check (and thus never re-show a
-                # dialog) more than once within a short window, even if the version
-                # comparison above somehow doesn't match (e.g. version string formatting
-                # differences) or the app gets restarted repeatedly in quick succession.
-                last_check_ts = _int(plugin.get_setting("last_update_check_ts", 0), 0)
-                now_ts = int(_time.time())
-                if now_ts - last_check_ts < 6 * 3600:
-                    log("[MAX] _check_for_updates: checked recently, skipping")
-                    return
-                plugin.set_setting("last_update_check_ts", now_ts)
-                # -----------------------------------------------------------
-                to_fetch = sorted(
-                    [v for v in versions if plugin._compare_versions(__version__, v) < 0],
-                    key=lambda v: [int(x) for x in v.split(".")]
-                )
-                lang = L._lang()
-                combined = []
-                for ver in to_fetch:
-                    raw = plugin._fetch_json_url(
-                        f"https://raw.githubusercontent.com/ExteraMax/Public/main/changelogs/{ver}.json"
-                    )
-                    if not isinstance(raw, dict):
-                        continue
-                    cl = raw.get("changelog", "")
-                    if isinstance(cl, dict):
-                        text = cl.get(lang, cl.get("en", ""))
-                    else:
-                        text = str(cl)
-                    if text:
-                        combined.append(f"v{ver}:\n{text}")
-                if not combined:
-                    return
-                msg = "\n\n".join(combined)
-                info = plugin._fetch_json_url(
-                    "https://raw.githubusercontent.com/ExteraMax/Public/main/plugin-info.json"
-                )
-                links = {}
-                if isinstance(info, dict):
-                    for key in ("ExteraPluginsSup", "MaxExteraPlugins"):
-                        val = str(info.get(key, "None"))
-                        if val and val != "None":
-                            links[key] = val
-                _time.sleep(2.0)
-                # --- Bug #5 fix: save notified version before showing dialog ---
-                plugin.set_setting("last_notified_version", max_ver)
-                # -----------------------------------------------------------
-                run_on_ui_thread(lambda: plugin._show_update_dialog(max_ver, msg, links))
-            except Exception:
-                pass
-        threading.Thread(target=_bg, daemon=True).start()
-
-    def _show_update_dialog(self, version, changelog, links=None):
-        try:
-            frag = get_last_fragment()
-            if not frag or not frag.getParentActivity():
-                return
-            ctx = frag.getParentActivity()
-            plugin = self
-            d = AlertDialogBuilder(ctx)
-            d.set_title(f"{L.g('update_available')} ExteraMax: v{version}")
-            d.set_message(changelog)
-            d.set_positive_button(L.g("remind_later"), lambda dd, w: dd.dismiss())
-            verified_url = links.get("ExteraPluginsSup") if links else None
-            author_url = links.get("MaxExteraPlugins") if links else None
-            if verified_url:
-                d.set_negative_button(L.g("download_verified"), lambda dd, w: (dd.dismiss(), plugin._open_tg_link(verified_url)))
-            if author_url:
-                d.set_neutral_button(L.g("view_author_channel"), lambda dd, w: (dd.dismiss(), plugin._open_tg_link(author_url)))
-            dlg_obj = d.show()
-            try:
-                dlg_obj.setCancelable(False)
-                dlg_obj.setCanceledOnTouchOutside(False)
-            except Exception:
-                pass
-        except Exception as e:
-            log(f"[MAX] updateDlg: {e}")
+        pass
 
     def _open_tg_link(self, url):
         try:
@@ -8893,6 +8779,8 @@ class MaxReExteraPlugin(BasePlugin):
             Switch(key="save_bot_chats", text=L.g("save_bots"), default=False),
             Switch(key="track_own_deletions", text=L.g("save_own_del"), default=False),
             Text(text=L.g("del_customize"), icon="msg_customize", on_click=lambda v: self._open_del_customize()),
+            Text(text=L.g("clear_all_deleted"), icon="msg_delete", subtext=L.g("clear_all_deleted_sub"), on_click=lambda v: plugin._on_clear_all_deleted_click()),
+            Text(text=L.g("sync_all_chats"), icon="msg_retry", subtext=L.g("sync_all_chats_sub"), on_click=lambda v: plugin._on_sync_all_chats_click()),
             Divider(),
             Header(text=L.g("storage")),
             Switch(key="save_attachments", text=L.g("save_attachments"), default=False),
@@ -9249,9 +9137,6 @@ class MaxReExteraPlugin(BasePlugin):
             Header(text=L.g("params")),
             Switch(key="show_in_settings", text=L.g("show_in_settings"), default=True, subtext=L.g("show_in_settings_sub"), icon="msg_settings", on_change=lambda v: plugin._on_show_in_settings_change(v)),
             Selector(key="plugin_lang", text=L.g("language"), default=_cur_lang_idx(), items=_lang_items, icon="msg_language", on_change=_on_lang_change),
-            Divider(),
-            Header(text=L.g("updates")),
-            Switch(key="check_updates_on_start", text=L.g("check_updates"), default=True, subtext=L.g("check_updates_sub")),
             Divider(),
             Header(text=L.g("backup")),
             Text(text=L.g("export_to_saved"), icon="msg_saved", subtext=L.g("export_to_saved_sub"), on_click=plugin._export_settings),

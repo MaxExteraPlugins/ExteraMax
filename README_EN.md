@@ -28,7 +28,7 @@ All-in-one comprehensive tweak suite and feature enhancer for ExteraGram.
 ## 📥 Installation
 
 1. Navigate to the [**Releases**](https://github.com/MaxExteraPlugins/ExteraMax/releases/latest) section.
-2. Download the `ExteraMax_v1.5.22.plugin` file.
+2. Download the `ExteraMax_v1.5.26.plugin` file.
 3. Send the file to your Telegram Saved Messages or open it via file manager in exteraGram / AyuGram.
 4. Tap the file in Telegram and choose **"Install plugin"**.
 

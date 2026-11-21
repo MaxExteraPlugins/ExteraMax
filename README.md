@@ -28,7 +28,7 @@
 ## 📥 Установка
 
 1. Перейдите во вкладку [**Releases**](https://github.com/MaxExteraPlugins/ExteraMax/releases/latest).
-2. Скачайте файл плагина `ExteraMax_v1.5.22.plugin`.
+2. Скачайте файл плагина `ExteraMax_v1.5.26.plugin`.
 3. Отправьте файл в Telegram (в «Избранное») или откройте его через проводник в exteraGram / AyuGram.
 4. Нажмите на сообщение с плагином и выберите **«Установить плагин»**.
 

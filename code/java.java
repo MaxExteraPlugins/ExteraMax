@@ -10,6 +10,8 @@ import android.app.Dialog;
 
 import android.content.ClipData;
 
+import android.content.ContentValues;
+
 import android.content.ClipboardManager;
 
 import android.content.Context;
@@ -197,6 +199,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.lang.ref.WeakReference;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import java.util.regex.Pattern;
 
@@ -245,6 +248,7 @@ import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.Utilities;
 
 import org.telegram.tgnet.ConnectionsManager;
+import org.telegram.tgnet.RequestDelegate;
 
 import org.telegram.tgnet.SerializedData;
 
@@ -259,6 +263,8 @@ import org.telegram.tgnet.tl.TL_account;
 import org.telegram.tgnet.tl.TL_stars;
 
 import org.telegram.ui.ActionBar.ActionBar;
+
+import org.telegram.ui.ActionBar.ActionBarMenu;
 
 import org.telegram.ui.ActionBar.ActionBarMenuItem;
 
@@ -359,8 +365,24 @@ public class Main {
         if (set != null) {
             set.removeAll(mids);
         }
+        if (did < -1000000000000L) {
+            long chId = -did - 1000000000000L;
+            Set<Integer> set2 = deletedStore.get(Long.valueOf(-chId));
+            if (set2 != null) set2.removeAll(mids);
+        } else if (did < 0) {
+            long chId = -did;
+            Set<Integer> set2 = deletedStore.get(Long.valueOf(-1000000000000L - chId));
+            if (set2 != null) set2.removeAll(mids);
+        }
         if (db != null) {
             db.purge(did, new ArrayList<>(mids));
+            if (did < -1000000000000L) {
+                long chId = -did - 1000000000000L;
+                db.purge(-chId, new ArrayList<>(mids));
+            } else if (did < 0) {
+                long chId = -did;
+                db.purge(-1000000000000L - chId, new ArrayList<>(mids));
+            }
         }
     }
 
@@ -368,24 +390,40 @@ public class Main {
         if (mid <= 0 || did == 0) return false;
         Set<Integer> set = deletedStore.get(Long.valueOf(did));
         if (set != null && set.contains(Integer.valueOf(mid))) return true;
-        if (did < 0) {
-            long positive = -did;
-            set = deletedStore.get(Long.valueOf(positive));
+        if (did < -1000000000000L) {
+            long chId = -did - 1000000000000L;
+            set = deletedStore.get(Long.valueOf(-chId));
             if (set != null && set.contains(Integer.valueOf(mid))) return true;
-            if (positive > 1000000000000L) {
-                long chId = positive - 1000000000000L;
-                set = deletedStore.get(Long.valueOf(-chId));
-                if (set != null && set.contains(Integer.valueOf(mid))) return true;
-                set = deletedStore.get(Long.valueOf(chId));
-                if (set != null && set.contains(Integer.valueOf(mid))) return true;
-            }
-        } else if (did > 0) {
-            set = deletedStore.get(Long.valueOf(-did));
-            if (set != null && set.contains(Integer.valueOf(mid))) return true;
-            set = deletedStore.get(Long.valueOf(-1000000000000L - did));
+        } else if (did < 0) {
+            long chId = -did;
+            set = deletedStore.get(Long.valueOf(-1000000000000L - chId));
             if (set != null && set.contains(Integer.valueOf(mid))) return true;
         }
         return false;
+    }
+
+    public static final ConcurrentHashMap<Long, Integer> readDatesCache = new ConcurrentHashMap<>();
+
+    public static void saveReadDate(long did, int mid, int readDate) {
+        if (did == 0 || mid <= 0 || readDate <= 0) return;
+        readDatesCache.put(Long.valueOf(pk(did, mid)), Integer.valueOf(readDate));
+        if (db != null) {
+            db.saveReadDate(did, mid, readDate);
+        }
+    }
+
+    public static int getReadDate(long did, int mid) {
+        if (did == 0 || mid <= 0) return 0;
+        Integer cached = readDatesCache.get(Long.valueOf(pk(did, mid)));
+        if (cached != null) return cached.intValue();
+        if (db != null) {
+            int d = db.getReadDate(did, mid);
+            if (d > 0) {
+                readDatesCache.put(Long.valueOf(pk(did, mid)), Integer.valueOf(d));
+                return d;
+            }
+        }
+        return 0;
     }
 
     public static boolean isDeletedMsg(MessageObject mo) {
@@ -554,6 +592,10 @@ public class Main {
             }
         }
 
+        public static boolean isEmpty() {
+            return patterns.isEmpty();
+        }
+
         public static List<String> all() {
             return new ArrayList<>(filters);
         }
@@ -706,9 +748,9 @@ public class Main {
         }
     }
 
-    public static final String VERSION = "1.2.18";
+    public static final String VERSION = "1.2.23";
 
-    public static final int VERSION_CODE = 138;
+    public static final int VERSION_CODE = 143;
 
     private static Config cfg;
 
@@ -763,18 +805,6 @@ public class Main {
             if (Main.cfg != null) {
 
                 if (Main.cfg.b("keep_app_alive", false)) {
-
-                    for (int i = 0; i < 16; i++) {
-
-                        try {
-
-                            ConnectionsManager.getInstance(i).checkConnection();
-
-                        } catch (Exception e) {
-
-                        }
-
-                    }
 
                     if (Main.cfg.isGhost()) {
 
@@ -972,6 +1002,333 @@ public class Main {
 
         });
 
+    }
+
+    public static void pyClearAllDeleted() {
+        ui(new Runnable() {
+            @Override
+            public final void run() {
+                try {
+                    clearAllDeletedData(null);
+                } catch (Exception e) {
+                    err("pyClearAll", e);
+                }
+            }
+        });
+    }
+
+    public static void clearAllDeletedData(final Runnable onDone) {
+        try {
+            final Map<Long, ArrayList<Integer>> allDeleted = (db != null) ? db.getAllDeletedByDialog() : new HashMap<Long, ArrayList<Integer>>();
+            for (Map.Entry<Long, Set<Integer>> entry : deletedStore.entrySet()) {
+                long d = entry.getKey();
+                Set<Integer> set = entry.getValue();
+                if (set != null && !set.isEmpty()) {
+                    ArrayList<Integer> list = allDeleted.get(d);
+                    if (list == null) {
+                        list = new ArrayList<>(set);
+                        allDeleted.put(d, list);
+                    } else {
+                        for (Integer mid : set) {
+                            if (!list.contains(mid)) list.add(mid);
+                        }
+                    }
+                }
+            }
+
+            int account = UserConfig.selectedAccount;
+            for (Map.Entry<Long, ArrayList<Integer>> entry : allDeleted.entrySet()) {
+                long did = entry.getKey();
+                ArrayList<Integer> mids = entry.getValue();
+                if (mids == null || mids.isEmpty()) continue;
+                purgeDialogs.add(Long.valueOf(did));
+                HookManager.DeletionBypass.allow(did, mids);
+                try {
+                    int channelId = 0;
+                    if (did < -1000000000000L) {
+                        channelId = (int) (-did - 1000000000000L);
+                    }
+                    MessagesController.getInstance(account).deleteMessages(new ArrayList<>(mids), null, null, did, channelId, false, 0);
+                } catch (Throwable t) {
+                    err("delAllMsg", new Exception(t));
+                }
+            }
+
+            BaseFragment frag = LaunchActivity.getLastFragment();
+            if (frag instanceof ChatActivity) {
+                ChatActivity ca = (ChatActivity) frag;
+                long openDid = ca.getDialogId();
+                ArrayList<Integer> openMids = allDeleted.get(openDid);
+                if (openMids == null && openDid < -1000000000000L) {
+                    openMids = allDeleted.get(-(-openDid - 1000000000000L));
+                }
+                if (openMids != null && !openMids.isEmpty()) {
+                    animatePurge(openDid, openMids);
+                }
+                try {
+                    Field messagesField = ChatActivity.class.getDeclaredField("messages");
+                    messagesField.setAccessible(true);
+                    ArrayList messages = (ArrayList) messagesField.get(ca);
+                    if (messages != null) {
+                        Iterator it = messages.iterator();
+                        boolean changed = false;
+                        while (it.hasNext()) {
+                            Object obj = it.next();
+                            if (obj instanceof MessageObject) {
+                                MessageObject mo = (MessageObject) obj;
+                                if (mo.deleted || isDeletedMsg(mo)) {
+                                    it.remove();
+                                    changed = true;
+                                }
+                            }
+                        }
+                        if (changed) {
+                            ca.updateMessagesVisiblePart(true);
+                            ViewGroup chatListView = ca.getChatListView();
+                            if (chatListView instanceof RecyclerView) {
+                                RecyclerView.Adapter adapter = ((RecyclerView) chatListView).getAdapter();
+                                if (adapter != null) adapter.notifyDataSetChanged();
+                            }
+                        }
+                    }
+                } catch (Throwable ignored) {}
+            }
+
+            if (db != null) {
+                db.clearAllDeleted();
+            }
+            deletedStore.clear();
+            justPurged.clear();
+            readDatesCache.clear();
+            refreshCells();
+        } catch (Throwable t) {
+            err("clearAllDeletedData", new Exception(t));
+        }
+        if (onDone != null) onDone.run();
+    }
+
+    public static void pySyncAllChats() {
+        ui(new Runnable() {
+            @Override
+            public final void run() {
+                try {
+                    syncAllChatsFromCloud(null);
+                } catch (Exception e) {
+                    err("pySyncAll", e);
+                }
+            }
+        });
+    }
+
+    public static void syncAllChatsFromCloud(final Runnable onDone) {
+        try {
+            final int account = UserConfig.selectedAccount;
+            final MessagesController mc = MessagesController.getInstance(account);
+            final Set<Long> dialogIds = new LinkedHashSet<>();
+
+            try {
+                ArrayList<TLRPC.Dialog> d0 = mc.getDialogs(0);
+                if (d0 != null) {
+                    for (TLRPC.Dialog d : d0) {
+                        if (d != null && d.id != 0) dialogIds.add(d.id);
+                    }
+                }
+            } catch (Throwable ignored) {}
+
+            try {
+                ArrayList<TLRPC.Dialog> d1 = mc.getDialogs(1);
+                if (d1 != null) {
+                    for (TLRPC.Dialog d : d1) {
+                        if (d != null && d.id != 0) dialogIds.add(d.id);
+                    }
+                }
+            } catch (Throwable ignored) {}
+
+            try {
+                Field fAll = MessagesController.class.getDeclaredField("allDialogs");
+                fAll.setAccessible(true);
+                ArrayList all = (ArrayList) fAll.get(mc);
+                if (all != null) {
+                    for (Object o : all) {
+                        if (o instanceof TLRPC.Dialog) {
+                            TLRPC.Dialog d = (TLRPC.Dialog) o;
+                            if (d != null && d.id != 0) dialogIds.add(d.id);
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {}
+
+            BaseFragment frag = LaunchActivity.getLastFragment();
+            final ChatActivity openCa = (frag instanceof ChatActivity) ? (ChatActivity) frag : null;
+            if (openCa != null && openCa.getDialogId() != 0) {
+                dialogIds.add(openCa.getDialogId());
+            }
+
+            if (dialogIds.isEmpty()) {
+                if (onDone != null) onDone.run();
+                return;
+            }
+
+            final AtomicInteger pending = new AtomicInteger(dialogIds.size());
+            final ConnectionsManager cm = ConnectionsManager.getInstance(account);
+
+            for (final Long didObj : dialogIds) {
+                final long did = didObj;
+                TLRPC.InputPeer peer = mc.getInputPeer(did);
+                if (peer == null) {
+                    if (pending.decrementAndGet() == 0) {
+                        finishSyncAll(account, openCa, onDone);
+                    }
+                    continue;
+                }
+
+                TLRPC.TL_messages_getHistory req = new TLRPC.TL_messages_getHistory();
+                req.peer = peer;
+                req.limit = 50;
+                req.offset_id = 0;
+
+                cm.sendRequest(req, new RequestDelegate() {
+                    @Override
+                    public void run(final TLObject response, final TLRPC.TL_error error) {
+                        try {
+                            if (response instanceof TLRPC.messages_Messages) {
+                                TLRPC.messages_Messages res = (TLRPC.messages_Messages) response;
+                                if (res.messages != null && !res.messages.isEmpty()) {
+                                    for (TLRPC.Message m : res.messages) {
+                                        if (m != null) m.dialog_id = did;
+                                    }
+                                    MessagesStorage.getInstance(account).putMessages(res.messages, false, true, false, 0, false, 0, 0);
+
+                                    if (openCa != null && openCa.getDialogId() == did) {
+                                        AndroidUtilities.runOnUIThread(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                try {
+                                                    ArrayList<MessageObject> newObjects = new ArrayList<>();
+                                                    for (TLRPC.Message m : res.messages) {
+                                                        if (m != null) {
+                                                            newObjects.add(new MessageObject(account, m, false, false));
+                                                        }
+                                                    }
+                                                    if (openCa.messages != null) {
+                                                        for (MessageObject newMo : newObjects) {
+                                                            boolean found = false;
+                                                            for (int i = 0; i < openCa.messages.size(); i++) {
+                                                                MessageObject cur = openCa.messages.get(i);
+                                                                if (cur != null && cur.getId() == newMo.getId()) {
+                                                                    cur.deleted = false;
+                                                                    cur.messageOwner = newMo.messageOwner;
+                                                                    found = true;
+                                                                    break;
+                                                                }
+                                                            }
+                                                            if (!found) {
+                                                                openCa.messages.add(newMo);
+                                                            }
+                                                        }
+                                                    }
+                                                    openCa.updateMessagesVisiblePart(true);
+                                                    Main.forceUpdateViews(account, did, null);
+                                                } catch (Throwable ignored) {}
+                                            }
+                                        });
+                                    }
+                                }
+                            }
+                        } catch (Throwable t) {
+                            err("syncChatResp", new Exception(t));
+                        } finally {
+                            if (pending.decrementAndGet() == 0) {
+                                finishSyncAll(account, openCa, onDone);
+                            }
+                        }
+                    }
+                });
+            }
+        } catch (Throwable t) {
+            err("syncAllChats", new Exception(t));
+            if (onDone != null) onDone.run();
+        }
+    }
+
+    private static void finishSyncAll(final int account, final ChatActivity openCa, final Runnable onDone) {
+        AndroidUtilities.runOnUIThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    refreshCells();
+                    BaseFragment frag = LaunchActivity.getLastFragment();
+                    if (frag != null) {
+                        BulletinFactory.of(frag).createSuccessBulletin("Все чаты успешно синхронизированы с сервером").show();
+                    }
+                } catch (Throwable ignored) {}
+                if (onDone != null) onDone.run();
+            }
+        });
+    }
+
+    public static void reloadChatFromCloud(final ChatActivity ca) {
+        if (ca == null) return;
+        try {
+            final long did = ca.getDialogId();
+            if (did == 0) return;
+            final int account = ca.getCurrentAccount();
+            TLRPC.TL_messages_getHistory req = new TLRPC.TL_messages_getHistory();
+            req.peer = MessagesController.getInstance(account).getInputPeer(did);
+            req.limit = 100;
+            req.offset_id = 0;
+            ConnectionsManager.getInstance(account).sendRequest(req, new RequestDelegate() {
+                @Override
+                public void run(final TLObject response, final TLRPC.TL_error error) {
+                    AndroidUtilities.runOnUIThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                if (response instanceof TLRPC.messages_Messages) {
+                                    TLRPC.messages_Messages res = (TLRPC.messages_Messages) response;
+                                    if (res.messages != null && !res.messages.isEmpty()) {
+                                        for (TLRPC.Message m : res.messages) {
+                                            if (m != null) m.dialog_id = did;
+                                        }
+                                        MessagesStorage.getInstance(account).putMessages(res.messages, false, true, false, 0, false, 0, 0);
+                                        ArrayList<MessageObject> newObjects = new ArrayList<>();
+                                        for (TLRPC.Message m : res.messages) {
+                                            if (m != null) {
+                                                newObjects.add(new MessageObject(account, m, false, false));
+                                            }
+                                        }
+                                        if (ca.messages != null) {
+                                            for (MessageObject newMo : newObjects) {
+                                                boolean found = false;
+                                                for (int i = 0; i < ca.messages.size(); i++) {
+                                                    MessageObject cur = ca.messages.get(i);
+                                                    if (cur != null && cur.getId() == newMo.getId()) {
+                                                        cur.deleted = false;
+                                                        cur.messageOwner = newMo.messageOwner;
+                                                        found = true;
+                                                        break;
+                                                    }
+                                                }
+                                                if (!found) {
+                                                    ca.messages.add(newMo);
+                                                }
+                                            }
+                                        }
+                                        ca.updateMessagesVisiblePart(true);
+                                        Main.forceUpdateViews(account, did, null);
+                                        BulletinFactory.of(ca).createSuccessBulletin("История чата синхронизирована с сервером").show();
+                                    }
+                                }
+                            } catch (Throwable t) {
+                                err("reloadChatRes", new Exception(t));
+                            }
+                        }
+                    });
+                }
+            });
+        } catch (Throwable t) {
+            err("reloadChatFromCloud", new Exception(t));
+        }
     }
 
 
@@ -3992,8 +4349,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
                 if (messagesController != null) {
 
-                    sf(messagesController, "checkingPromoInfo", false);
-
                     sf(messagesController, "promoDialogId", 0L);
 
                     sf(messagesController, "promoDialogType", 0);
@@ -4852,9 +5207,31 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
             actionBar.setAllowOverlayTitle(false);
 
+            ActionBarMenu dmfMenu = actionBar.createMenu();
+            ActionBarMenuItem dmfOtherItem = dmfMenu.addItem(10, R.drawable.ic_ab_other);
+            dmfOtherItem.addSubItem(11, R.drawable.msg_delete, "Очистить ВСЕ удалёнки");
+
             actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
 
-                @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
+                @Override public void onItemClick(int id) {
+                    if (id == -1) {
+                        finishFragment();
+                    } else if (id == 11) {
+                        try {
+                            AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+                            builder.setTitle("ExteraMax");
+                            builder.setMessage("Полностью очистить ВСЕ сохранённые удалённые сообщения во всех чатах?");
+                            builder.setPositiveButton("Очистить всё", (dialog, which) -> {
+                                dialog.dismiss();
+                                Main.clearAllDeletedData(() -> {
+                                    reloadMessages();
+                                });
+                            });
+                            builder.setNegativeButton("Отмена", (dialog, which) -> dialog.dismiss());
+                            showDialog(builder.create());
+                        } catch (Throwable ignored) {}
+                    }
+                }
 
             });
 
@@ -8486,6 +8863,36 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         void postToDbThread(Runnable r) { dbHandler.post(r); }
 
+        public void saveReadDate(long did, int mid, int readDate) {
+            if (did == 0 || mid <= 0 || readDate <= 0) return;
+            try {
+                SQLiteDatabase db = this.helper.getWritableDatabase();
+                ContentValues cv = new ContentValues();
+                cv.put("did", Long.valueOf(did));
+                cv.put("mid", Integer.valueOf(mid));
+                cv.put("read_date", Integer.valueOf(readDate));
+                db.insertWithOnConflict("read_dates", null, cv, SQLiteDatabase.CONFLICT_REPLACE);
+            } catch (Throwable t) {}
+        }
+
+        public int getReadDate(long did, int mid) {
+            if (did == 0 || mid <= 0) return 0;
+            try {
+                SQLiteDatabase db = this.helper.getReadableDatabase();
+                Cursor c = db.rawQuery("SELECT read_date FROM read_dates WHERE did=? AND mid=?", new String[]{String.valueOf(did), String.valueOf(mid)});
+                int res = 0;
+                if (c != null) {
+                    if (c.moveToNext()) {
+                        res = c.getInt(0);
+                    }
+                    c.close();
+                }
+                return res;
+            } catch (Throwable t) {
+                return 0;
+            }
+        }
+
 
 
         private void ensureColumns() {
@@ -8653,6 +9060,29 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         public boolean isRem(MessageObject messageObject) {
             return messageObject != null && Main.isDeletedMsg(messageObject);
+        }
+
+        public Map<Long, ArrayList<Integer>> getAllDeletedByDialog() {
+            Map<Long, ArrayList<Integer>> result = new HashMap<>();
+            try {
+                Cursor c = this.helper.getReadableDatabase().rawQuery("SELECT did, mid FROM deleted_keys", null);
+                if (c != null) {
+                    while (c.moveToNext()) {
+                        long d = c.getLong(0);
+                        int m = c.getInt(1);
+                        ArrayList<Integer> list = result.get(d);
+                        if (list == null) {
+                            list = new ArrayList<>();
+                            result.put(d, list);
+                        }
+                        list.add(m);
+                    }
+                    c.close();
+                }
+            } catch (Throwable t) {
+                Main.err("getAllDeletedByDialog", new Exception(t));
+            }
+            return result;
         }
 
         public void clearAllDeleted() {
@@ -10643,12 +11073,10 @@ public boolean addRegex(String str) {
                     builder.setPositiveButton("Очистить", new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
-                            if (Main.db != null) {
-                                Main.db.clearAllDeleted();
-                            }
-                            Main.deletedStore.clear();
-                            Main.refreshCellsForMidsNow(null);
-                            Toast.makeText(ctx, "База удалённых сообщений успешно очищена", Toast.LENGTH_SHORT).show();
+                            Main.clearAllDeletedData(() -> {
+                                refreshPreview();
+                                Toast.makeText(ctx, "База удалённых сообщений успешно очищена", Toast.LENGTH_SHORT).show();
+                            });
                         }
                     });
                     builder.setNegativeButton("Отмена", null);
@@ -11303,6 +11731,36 @@ public boolean addRegex(String str) {
 
                 });
 
+                ActionBarMenuItem.addItem(viewGroup, R.drawable.msg_delete, "Очистить ВСЕ удалёнки", false, resourcesProvider).setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public final void onClick(View view) {
+                        try {
+                            actionBarMenuItem.closeSubMenu();
+                            HookManager.confirmPurgeAll3dot(chatActivity);
+                        } catch (Throwable ignored) {}
+                    }
+                });
+
+                ActionBarMenuItem.addItem(viewGroup, R.drawable.msg_retry, "Синхронизировать чат", false, resourcesProvider).setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public final void onClick(View view) {
+                        try {
+                            actionBarMenuItem.closeSubMenu();
+                            Main.reloadChatFromCloud(chatActivity);
+                        } catch (Throwable ignored) {}
+                    }
+                });
+
+                ActionBarMenuItem.addItem(viewGroup, R.drawable.msg_retry, "Синхронизировать все чаты", false, resourcesProvider).setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public final void onClick(View view) {
+                        try {
+                            actionBarMenuItem.closeSubMenu();
+                            Main.syncAllChatsFromCloud(null);
+                        } catch (Throwable ignored) {}
+                    }
+                });
+
                 final ActionBarMenuSubItem addSwipeBackItem = actionBarMenuItem.addSwipeBackItem(i, (Drawable) null, "ExteraMax", (View) newInstance);
 
                 addSwipeBackItem.setOnClickListener(new View.OnClickListener() {
@@ -11453,6 +11911,30 @@ try {
 
             }
 
+        }
+
+        private static void confirmPurgeAll3dot(final ChatActivity chatActivity) {
+            try {
+                Context context = chatActivity.getContext();
+                if (context == null) return;
+                org.telegram.ui.ActionBar.AlertDialog.Builder builder = new org.telegram.ui.ActionBar.AlertDialog.Builder(context);
+                builder.setTitle("ExteraMax");
+                builder.setMessage("Вы уверены, что хотите полностью очистить данные обо ВСЕХ сохранённых удалённых сообщениях во всех чатах?");
+                builder.setPositiveButton("Очистить всё", (dialog, which) -> {
+                    try {
+                        dialog.dismiss();
+                        Main.clearAllDeletedData(() -> {
+                            try {
+                                BulletinFactory.of(chatActivity).createSuccessBulletin("Все сохранённые удалёнки очищены").show();
+                            } catch (Throwable ignored) {}
+                        });
+                    } catch (Exception ignored) {}
+                });
+                builder.setNegativeButton("Отмена", (dialog, which) -> dialog.dismiss());
+                chatActivity.showDialog(builder.create());
+            } catch (Exception e) {
+                Main.err("purgeAll3d", e);
+            }
         }
 
 
@@ -11628,6 +12110,7 @@ try {
                     @Override
                     public void beforeHookedMethod(MethodHookParam param) {
                         try {
+                            if (ShadowbanStore.isEmpty() && RegexFiltersStore.isEmpty()) return;
                             Field fMsg = org.telegram.ui.Cells.DialogCell.class.getDeclaredField("message");
                             fMsg.setAccessible(true);
                             MessageObject mo = (MessageObject) fMsg.get(param.thisObject);
@@ -11653,6 +12136,7 @@ try {
                         try {
                             int id = ((Integer) param.args[0]).intValue();
                             if (id == NotificationCenter.messagesDidLoad) {
+                                if (ShadowbanStore.isEmpty() && RegexFiltersStore.isEmpty()) return;
                                 Object[] args = (Object[]) param.args[2];
                                 if (args != null && args.length >= 3 && (args[2] instanceof ArrayList)) {
                                     ArrayList list = (ArrayList) args[2];
@@ -12388,15 +12872,43 @@ private void go() throws Exception {
                             // только блокировка рекламных запросов.
 
                             if (methodHookParam.args != null && methodHookParam.args.length >= 1 && (methodHookParam.args[0] instanceof TLObject)) {
-
-                                String simpleName = ((TLObject) methodHookParam.args[0]).getClass().getSimpleName();
-
-                                if (Main.cfg.b("hide_ads", true) && simpleName.contains("getPromoData")) {
-
-                                    methodHookParam.setResult(0);
-
+                                TLObject reqObj = (TLObject) methodHookParam.args[0];
+                                String simpleName = reqObj.getClass().getSimpleName();
+                                if ("TL_messages_getOutboxReadDate".equals(simpleName) || reqObj instanceof TLRPC.TL_messages_getOutboxReadDate) {
+                                    try {
+                                        TLRPC.TL_messages_getOutboxReadDate req = (TLRPC.TL_messages_getOutboxReadDate) reqObj;
+                                        long reqDid = 0;
+                                        if (req.peer instanceof TLRPC.TL_inputPeerUser) reqDid = ((TLRPC.TL_inputPeerUser) req.peer).user_id;
+                                        else if (req.peer instanceof TLRPC.TL_inputPeerChat) reqDid = -((TLRPC.TL_inputPeerChat) req.peer).chat_id;
+                                        else if (req.peer instanceof TLRPC.TL_inputPeerChannel) reqDid = -1000000000000L - ((TLRPC.TL_inputPeerChannel) req.peer).channel_id;
+                                        else if (req.peer instanceof TLRPC.TL_inputPeerUserFromMessage) reqDid = ((TLRPC.TL_inputPeerUserFromMessage) req.peer).user_id;
+                                        else if (req.peer instanceof TLRPC.TL_inputPeerChannelFromMessage) reqDid = -1000000000000L - ((TLRPC.TL_inputPeerChannelFromMessage) req.peer).channel_id;
+                                        final long targetDid = reqDid;
+                                        final int targetMid = req.msg_id;
+                                        final RequestDelegate origDelegate = methodHookParam.args.length > 1 ? (RequestDelegate) methodHookParam.args[1] : null;
+                                        methodHookParam.args[1] = new RequestDelegate() {
+                                            @Override
+                                            public void run(TLObject response, TLRPC.TL_error error) {
+                                                if (response instanceof TLRPC.TL_outboxReadDate) {
+                                                    int date = ((TLRPC.TL_outboxReadDate) response).date;
+                                                    if (date > 0 && targetDid != 0 && targetMid > 0) {
+                                                        Main.saveReadDate(targetDid, targetMid, date);
+                                                    }
+                                                    if (origDelegate != null) origDelegate.run(response, error);
+                                                } else {
+                                                    int savedDate = Main.getReadDate(targetDid, targetMid);
+                                                    if (savedDate > 0) {
+                                                        TLRPC.TL_outboxReadDate fallback = new TLRPC.TL_outboxReadDate();
+                                                        fallback.date = savedDate;
+                                                        if (origDelegate != null) origDelegate.run(fallback, null);
+                                                    } else {
+                                                        if (origDelegate != null) origDelegate.run(response, error);
+                                                    }
+                                                }
+                                            }
+                                        };
+                                    } catch (Throwable ignored) {}
                                 }
-
                             }
 
                         } catch (Throwable th) {
@@ -12502,19 +13014,36 @@ private void go() throws Exception {
                                 String cn = arg.getClass().getSimpleName();
 
                                 if ("TL_updateShortMessage".equals(cn)) {
-
                                     try {
-
                                         long uid = ((Number) Main.gf(arg, "user_id")).longValue();
-
                                         int date = ((Number) Main.gf(arg, "date")).intValue();
-
                                         Main.presenceRecord(uid, date > 0 ? date : now);
-
                                     } catch (Exception e) {
-
                                     }
-
+                                } else if ("TL_updateShortChatMessage".equals(cn)) {
+                                    try {
+                                        long uid = ((Number) Main.gf(arg, "from_id")).longValue();
+                                        int date = ((Number) Main.gf(arg, "date")).intValue();
+                                        Main.presenceRecord(uid, date > 0 ? date : now);
+                                    } catch (Exception e) {
+                                    }
+                                } else if ("TL_updateReadHistoryOutbox".equals(cn)) {
+                                    try {
+                                        TLRPC.Peer peer = (TLRPC.Peer) Main.gf(arg, "peer");
+                                        long did = peer != null ? (peer.user_id != 0 ? peer.user_id : (peer.chat_id != 0 ? -peer.chat_id : -1000000000000L - peer.channel_id)) : 0;
+                                        int maxId = ((Number) Main.gf(arg, "max_id")).intValue();
+                                        if (did != 0 && maxId > 0) {
+                                            Main.saveReadDate(did, maxId, (int) now);
+                                        }
+                                    } catch (Exception e) {}
+                                } else if ("TL_updateReadChannelOutbox".equals(cn)) {
+                                    try {
+                                        long channelId = ((Number) Main.gf(arg, "channel_id")).longValue();
+                                        int maxId = ((Number) Main.gf(arg, "max_id")).intValue();
+                                        if (channelId != 0 && maxId > 0) {
+                                            Main.saveReadDate(-1000000000000L - channelId, maxId, (int) now);
+                                        }
+                                    } catch (Exception e) {}
                                 } else if ("TL_updateShortChatMessage".equals(cn)) {
 
                                     try {
@@ -13689,155 +14218,126 @@ private void go() throws Exception {
         }
 
         private void hkDelMsgs() {
-
             try {
-
                 for (Method method : MessagesController.class.getDeclaredMethods()) {
-
                     if ("deleteMessages".equals(method.getName())) {
-
                         Class<?>[] parameterTypes = method.getParameterTypes();
-
-                        if (parameterTypes.length == 7 && parameterTypes[0] == ArrayList.class && parameterTypes[1] == ArrayList.class && "EncryptedChat".equals(parameterTypes[2].getSimpleName()) && parameterTypes[3] == Long.TYPE && parameterTypes[4] == Integer.TYPE && parameterTypes[5] == Boolean.TYPE && parameterTypes[6] == Integer.TYPE) {
-
+                        if (parameterTypes.length >= 7 && parameterTypes[0] == ArrayList.class && parameterTypes[1] == ArrayList.class && "EncryptedChat".equals(parameterTypes[2].getSimpleName()) && parameterTypes[3] == Long.TYPE && parameterTypes[4] == Integer.TYPE && parameterTypes[5] == Boolean.TYPE && parameterTypes[6] == Integer.TYPE) {
                             this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() {
-
                                 public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
-
                                     try {
-
-                                        if (((Number) methodHookParam.args[6]).intValue() != 0) {
-
-                                            return;
-
-                                        }
-
                                         ArrayList<Integer> ids = (ArrayList<Integer>) methodHookParam.args[0];
-
                                         if (ids == null || ids.isEmpty() || !Main.cfg.b("save_deleted", true) || Main.db == null) {
-
                                             return;
-
                                         }
-
                                         final long did = ((Number) methodHookParam.args[3]).longValue();
-
-                                        if (did == 0 || did == 489000L || Main.purgeDialogs.contains(Long.valueOf(did))) {
-
-                                            return;
-
+                                        int channel_id = ((Number) methodHookParam.args[4]).intValue();
+                                        long effDid = did;
+                                        if (channel_id != 0) {
+                                            effDid = -1000000000000L - channel_id;
+                                        } else if (did < -1000000000000L) {
+                                            channel_id = (int) (-did - 1000000000000L);
                                         }
 
-                                        boolean isEncrypted = methodHookParam.args[2] != null;
+                                        final long effectiveDid = effDid;
+                                        final int effectiveChannelId = channel_id;
 
+                                        if (effectiveDid == 0 || effectiveDid == 489000L || Main.purgeDialogs.contains(Long.valueOf(effectiveDid))) {
+                                            return;
+                                        }
+                                        boolean isEncrypted = methodHookParam.args[2] != null;
                                         final int currentAccount = UserConfig.selectedAccount;
 
-
-
                                         HashSet<Integer> alreadyDeleted = new HashSet<>();
-
                                         if (!isEncrypted) {
-
                                             for (Integer id : ids) {
-
-                                                if (id != null && Main.db.isRem(did, id.intValue())) {
-
-                                                    alreadyDeleted.add(id);
-
+                                                if (id != null) {
+                                                    int v = id.intValue();
+                                                    if (Main.isDeletedMsg(effectiveDid, v) || (did != 0 && Main.isDeletedMsg(did, v))) {
+                                                        alreadyDeleted.add(id);
+                                                    }
                                                 }
-
                                             }
-
                                         }
-
-
 
                                         ArrayList<Integer> notYetDeleted = new ArrayList<>();
-
                                         for (Integer id : ids) {
-
                                             if (id != null && !alreadyDeleted.contains(id)) {
-
                                                 notYetDeleted.add(id);
-
                                             }
-
                                         }
-
-
 
                                         if (!alreadyDeleted.isEmpty()) {
-
-                                            Main.db.purge(did, new ArrayList<>(alreadyDeleted));
-
                                             final ArrayList<Integer> purgeCopy = new ArrayList<>(alreadyDeleted);
+                                            Main.removeDeleted(effectiveDid, purgeCopy);
+                                            if (did != 0 && did != effectiveDid) {
+                                                Main.removeDeleted(did, purgeCopy);
+                                            }
+                                            if (Main.db != null) {
+                                                Main.db.purge(effectiveDid, purgeCopy);
+                                                if (did != 0 && did != effectiveDid) {
+                                                    Main.db.purge(did, purgeCopy);
+                                                }
+                                            }
+                                            DeletionBypass.allow(effectiveDid, purgeCopy);
+                                            if (did != 0) DeletionBypass.allow(did, purgeCopy);
 
                                             AndroidUtilities.runOnUIThread(new Runnable() {
-
                                                 @Override
-
                                                 public void run() {
-
-                                                    DeletionBypass.allow(did, purgeCopy);
-
-                                                    MessagesController.getInstance(currentAccount).deleteMessages(purgeCopy, null, null, did, 0, false, 0);
-
+                                                    try {
+                                                        MessagesController.getInstance(currentAccount).deleteMessages(purgeCopy, null, null, effectiveDid, effectiveChannelId, false, 0);
+                                                    } catch (Throwable ignored) {}
+                                                    try {
+                                                        BaseFragment lastFrag = LaunchActivity.getLastFragment();
+                                                        if (lastFrag instanceof ChatActivity) {
+                                                            ChatActivity ca = (ChatActivity) lastFrag;
+                                                            if (ca.getDialogId() == effectiveDid || (ca.getCurrentChat() != null && ca.getCurrentChat().id == effectiveChannelId)) {
+                                                                if (ca.messages != null) {
+                                                                    ArrayList<MessageObject> toRemove = new ArrayList<>();
+                                                                    for (MessageObject mo : ca.messages) {
+                                                                        if (mo != null && purgeCopy.contains(Integer.valueOf(mo.getId()))) {
+                                                                            toRemove.add(mo);
+                                                                        }
+                                                                    }
+                                                                    if (!toRemove.isEmpty()) {
+                                                                        ca.messages.removeAll(toRemove);
+                                                                        ca.updateMessagesVisiblePart(true);
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    } catch (Throwable ignored) {}
                                                 }
-
                                             });
-
                                         }
-
-
 
                                         boolean saveOwn = Main.cfg.b("track_own_deletions", true);
                                         if (!saveOwn) {
-                                            DeletionBypass.allow(did, notYetDeleted);
+                                            DeletionBypass.allow(effectiveDid, notYetDeleted);
+                                            if (did != 0) DeletionBypass.allow(did, notYetDeleted);
                                         }
-
-
 
                                         if (notYetDeleted.isEmpty()) {
-
                                             methodHookParam.setResult(null);
-
                                         } else {
-
                                             if (!alreadyDeleted.isEmpty()) {
-
                                                 methodHookParam.args[0] = new ArrayList<>(notYetDeleted);
-
                                             }
-
                                         }
-
                                     } catch (Exception e) {
-
                                         Main.err("hkDelMsgs", e);
-
                                     }
-
                                 }
-
                             }));
-
                             break;
-
                         }
-
                     }
-
                 }
-
             } catch (Exception e) {
-
                 Main.err("hkDelMsgs", e);
-
             }
-
         }
-
-
 
         private void hkCanDel() {
 
@@ -13943,10 +14443,31 @@ private void go() throws Exception {
                         m.setAccessible(true);
                         this.hooks.add(XposedBridge.hookMethod(m, new XC_MethodHook() {
                             private final List<TLRPC.Message> hidden = new ArrayList<>();
+                            private Boolean origReadDatesPrivate = null;
+                            private Integer origExpirePeriod = null;
+                            private ChatActivity currentCa = null;
 
                             @Override
                             public void beforeHookedMethod(MethodHookParam param) {
                                 try {
+                                    if ("createMenu".equals(param.method.getName()) && param.thisObject instanceof ChatActivity) {
+                                        ChatActivity ca = (ChatActivity) param.thisObject;
+                                        currentCa = ca;
+                                        try {
+                                            Field fUInfo = ChatActivity.class.getDeclaredField("userInfo");
+                                            fUInfo.setAccessible(true);
+                                            TLRPC.UserFull uf = (TLRPC.UserFull) fUInfo.get(ca);
+                                            if (uf != null && uf.read_dates_private) {
+                                                origReadDatesPrivate = Boolean.valueOf(uf.read_dates_private);
+                                                uf.read_dates_private = false;
+                                            }
+                                        } catch (Throwable ignored) {}
+                                        MessagesController mc = ca.getMessagesController();
+                                        if (mc != null && mc.pmReadDateExpirePeriod < 1000000000) {
+                                            origExpirePeriod = Integer.valueOf(mc.pmReadDateExpirePeriod);
+                                            mc.pmReadDateExpirePeriod = Integer.MAX_VALUE;
+                                        }
+                                    }
                                     if (!Main.cfg.b("bypass_noforward", false)) return;
                                     hidden.clear();
                                     if (param.args != null) {
@@ -13966,6 +14487,62 @@ private void go() throws Exception {
                             @Override
                             public void afterHookedMethod(MethodHookParam param) {
                                 try {
+                                    if (currentCa != null) {
+                                        if (origReadDatesPrivate != null) {
+                                            try {
+                                                Field fUInfo = ChatActivity.class.getDeclaredField("userInfo");
+                                                fUInfo.setAccessible(true);
+                                                TLRPC.UserFull uf = (TLRPC.UserFull) fUInfo.get(currentCa);
+                                                if (uf != null) {
+                                                    uf.read_dates_private = origReadDatesPrivate.booleanValue();
+                                                }
+                                            } catch (Throwable ignored) {}
+                                            origReadDatesPrivate = null;
+                                        }
+                                        MessagesController mc = currentCa.getMessagesController();
+                                        if (mc != null && origExpirePeriod != null) {
+                                            mc.pmReadDateExpirePeriod = origExpirePeriod.intValue();
+                                            origExpirePeriod = null;
+                                        }
+
+                                        // Restore from cloud context menu item
+                                        if ("createMenu".equals(param.method.getName()) && Boolean.TRUE.equals(param.getResult())) {
+                                            final ChatActivity chatAct = currentCa;
+                                            MessageObject selMsg = null;
+                                            if (param.args != null && param.args.length > 0 && param.args[0] instanceof org.telegram.ui.Cells.ChatMessageCell) {
+                                                selMsg = ((org.telegram.ui.Cells.ChatMessageCell) param.args[0]).getMessageObject();
+                                            }
+                                            if (selMsg == null) {
+                                                try {
+                                                    Field fSel = ChatActivity.class.getDeclaredField("selectedObject");
+                                                    fSel.setAccessible(true);
+                                                    selMsg = (MessageObject) fSel.get(chatAct);
+                                                } catch (Throwable ignored) {}
+                                            }
+                                            final MessageObject selectedMsg = selMsg;
+                                            if (selectedMsg != null && (selectedMsg.deleted || Main.isDeletedMsg(selectedMsg))) {
+                                                if (chatAct.scrimPopupWindow != null && chatAct.scrimPopupWindow.getContentView() instanceof ViewGroup) {
+                                                    ViewGroup contentView = (ViewGroup) chatAct.scrimPopupWindow.getContentView();
+                                                    ViewGroup popupLayout = findActionBarPopupWindowLayout(contentView);
+                                                    if (popupLayout != null) {
+                                                        org.telegram.ui.ActionBar.ActionBarMenuSubItem restoreItem = new org.telegram.ui.ActionBar.ActionBarMenuSubItem(chatAct.getParentActivity(), true, true);
+                                                        restoreItem.setTextAndIcon("Восстановить из облака", R.drawable.msg_retry);
+                                                        restoreItem.setOnClickListener(new View.OnClickListener() {
+                                                            @Override
+                                                            public void onClick(View v) {
+                                                                if (chatAct.scrimPopupWindow != null) {
+                                                                    chatAct.scrimPopupWindow.dismiss();
+                                                                }
+                                                                restoreMessageFromCloud(chatAct, selectedMsg);
+                                                            }
+                                                        });
+                                                        popupLayout.addView(restoreItem);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        currentCa = null;
+                                    }
                                     for (TLRPC.Message msg : hidden) {
                                         if (msg != null) msg.noforwards = true;
                                     }
@@ -13978,7 +14555,6 @@ private void go() throws Exception {
             } catch (Throwable t) {}
 
             try {
-
                 for (Method method2 : SendMessagesHelper.class.getDeclaredMethods()) {
 
                     if ("sendMessage".equals(method2.getName()) && method2.getParameterTypes().length == 1 && method2.getParameterTypes()[0].getSimpleName().contains("SendMessageParams")) {
@@ -14016,6 +14592,115 @@ private void go() throws Exception {
         }
 
 
+
+        private static ViewGroup findActionBarPopupWindowLayout(ViewGroup root) {
+            if (root == null) return null;
+            if (root.getClass().getSimpleName().contains("ActionBarPopupWindowLayout")) {
+                return root;
+            }
+            for (int i = 0; i < root.getChildCount(); i++) {
+                View child = root.getChildAt(i);
+                if (child instanceof ViewGroup) {
+                    ViewGroup res = findActionBarPopupWindowLayout((ViewGroup) child);
+                    if (res != null) return res;
+                }
+            }
+            return null;
+        }
+
+        private static void restoreMessageFromCloud(final ChatActivity ca, final MessageObject selectedMsg) {
+            if (ca == null || selectedMsg == null) return;
+            try {
+                final long did = selectedMsg.getDialogId();
+                final int mid = selectedMsg.getId();
+                final int account = ca.getCurrentAccount();
+
+                // 1. Remove deleted markers
+                Main.removeDeleted(did, Collections.singletonList(Integer.valueOf(mid)));
+                if (did < -1000000000000L) {
+                    long chId = -did - 1000000000000L;
+                    Main.removeDeleted(-chId, Collections.singletonList(Integer.valueOf(mid)));
+                } else if (did < 0) {
+                    long chId = -did;
+                    Main.removeDeleted(-1000000000000L - chId, Collections.singletonList(Integer.valueOf(mid)));
+                }
+                if (Main.db != null) {
+                    Main.db.purge(did, new ArrayList<>(Collections.singletonList(Integer.valueOf(mid))));
+                    if (did < -1000000000000L) {
+                        Main.db.purge(-did - 1000000000000L, new ArrayList<>(Collections.singletonList(Integer.valueOf(mid))));
+                    }
+                }
+                selectedMsg.deleted = false;
+
+                // 2. Fetch original from server
+                boolean isChannel = (did < -1000000000000L) || (ca.getCurrentChat() != null && ChatObject.isChannel(ca.getCurrentChat()));
+                if (isChannel) {
+                    long channelId = ca.getCurrentChat() != null ? ca.getCurrentChat().id : (-did - 1000000000000L);
+                    TLRPC.TL_channels_getMessages req = new TLRPC.TL_channels_getMessages();
+                    req.channel = MessagesController.getInstance(account).getInputChannel(channelId);
+                    req.id.add(Integer.valueOf(mid));
+                    ConnectionsManager.getInstance(account).sendRequest(req, new RequestDelegate() {
+                        @Override
+                        public void run(final TLObject response, final TLRPC.TL_error error) {
+                            AndroidUtilities.runOnUIThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    handleCloudRestoreResponse(ca, selectedMsg, response, error, did, mid, account);
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    TLRPC.TL_messages_getMessages req = new TLRPC.TL_messages_getMessages();
+                    req.id.add(Integer.valueOf(mid));
+                    ConnectionsManager.getInstance(account).sendRequest(req, new RequestDelegate() {
+                        @Override
+                        public void run(final TLObject response, final TLRPC.TL_error error) {
+                            AndroidUtilities.runOnUIThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    handleCloudRestoreResponse(ca, selectedMsg, response, error, did, mid, account);
+                                }
+                            });
+                        }
+                    });
+                }
+            } catch (Throwable t) {
+                Main.err("restoreMessageFromCloud", new Exception(t));
+            }
+        }
+
+        private static void handleCloudRestoreResponse(ChatActivity ca, MessageObject selectedMsg, TLObject response, TLRPC.TL_error error, long did, int mid, int account) {
+            try {
+                if (response instanceof TLRPC.messages_Messages) {
+                    TLRPC.messages_Messages res = (TLRPC.messages_Messages) response;
+                    if (res.messages != null && !res.messages.isEmpty()) {
+                        TLRPC.Message srvMsg = res.messages.get(0);
+                        if (srvMsg instanceof TLRPC.TL_message) {
+                            srvMsg.dialog_id = did;
+                            ArrayList<TLRPC.Message> arr = new ArrayList<>();
+                            arr.add(srvMsg);
+                            MessagesStorage.getInstance(account).putMessages(arr, false, true, false, 0, false, 0, 0);
+                            selectedMsg.messageOwner = srvMsg;
+                            selectedMsg.deleted = false;
+                        }
+                    }
+                }
+                selectedMsg.deleted = false;
+                if (ca.messages != null) {
+                    for (MessageObject mo : ca.messages) {
+                        if (mo != null && mo.getId() == mid) {
+                            mo.deleted = false;
+                            if (selectedMsg.messageOwner != null) mo.messageOwner = selectedMsg.messageOwner;
+                        }
+                    }
+                }
+                Main.forceUpdateViews(account, did, Collections.singletonList(Integer.valueOf(mid)));
+                BulletinFactory.of(ca).createSuccessBulletin("Сообщение восстановлено из облака").show();
+            } catch (Throwable t) {
+                Main.err("handleCloudRestoreResponse", new Exception(t));
+            }
+        }
 
         private void hkNoForwardLimit() {
 
@@ -16287,137 +16972,69 @@ private void go() throws Exception {
 
         private static final ThreadLocal<Object> lastOnlineSwap = new ThreadLocal<>();
 
-
-
         private void hkFormatUserStatus() {
-
-            for (final Method method : LocaleController.class.getDeclaredMethods()) {
-
-                if (!"formatUserStatus".equals(method.getName())) {
-
-                    continue;
-
-                }
-
-                try {
-
-                    method.setAccessible(true);
-
-                    this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() {
-
-                        public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
-
-                            try {
-
-                                if (!Main.cfg.b("save_last_online", false)) {
-
-                                    return;
-
-                                }
-
-                                if (methodHookParam.args == null || methodHookParam.args.length < 2 || !(methodHookParam.args[1] instanceof TLRPC.User)) {
-
-                                    return;
-
-                                }
-
-                                TLRPC.User user = (TLRPC.User) methodHookParam.args[1];
-
-                                if (user.status == null) {
-
-                                    return;
-
-                                }
-
-                                boolean isHidden = (user.status instanceof TLRPC.TL_userStatusRecently)
-
-                                        || (user.status instanceof TLRPC.TL_userStatusLastWeek)
-
-                                        || (user.status instanceof TLRPC.TL_userStatusLastMonth)
-
-                                        || (user.status instanceof TLRPC.TL_userStatusEmpty);
-
-                                if (!isHidden) {
-
-                                    return;
-
-                                }
-
-                                Long ts = presenceLastSeen.get(Long.valueOf(user.id));
-
-                                if (ts == null || ts.longValue() <= 0) {
-
-                                    return;
-
-                                }
-
-                                lastOnlineSwap.set(user.status);
-
-                                TLRPC.TL_userStatusOffline exact = new TLRPC.TL_userStatusOffline();
-
-                                exact.expires = (int) Math.min(ts.longValue(), Integer.MAX_VALUE);
-
-                                user.status = exact;
-
-                            } catch (Throwable t) {
-
+            try {
+                Method method = LocaleController.class.getDeclaredMethod("formatUserStatus", Integer.TYPE, TLRPC.User.class, boolean[].class, boolean[].class, boolean[].class);
+                method.setAccessible(true);
+                this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() {
+                    @Override
+                    public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
+                        try {
+                            if (!Main.cfg.b("save_last_online", false)) {
+                                return;
                             }
+                            if (methodHookParam.args == null || methodHookParam.args.length < 2 || !(methodHookParam.args[1] instanceof TLRPC.User)) {
+                                return;
+                            }
+                            TLRPC.User user = (TLRPC.User) methodHookParam.args[1];
+                            if (user == null || user.status == null) {
+                                return;
+                            }
+                            boolean isHidden = (user.status instanceof TLRPC.TL_userStatusRecently)
+                                    || (user.status instanceof TLRPC.TL_userStatusLastWeek)
+                                    || (user.status instanceof TLRPC.TL_userStatusLastMonth)
+                                    || (user.status instanceof TLRPC.TL_userStatusEmpty);
+                            if (!isHidden) {
+                                return;
+                            }
+                            Long ts = presenceLastSeen.get(Long.valueOf(user.id));
+                            if (ts == null || ts.longValue() <= 0) {
+                                return;
+                            }
+                            lastOnlineSwap.set(user.status);
+                            int timeSec = (int) (ts.longValue() > 10000000000L ? (ts.longValue() / 1000L) : ts.longValue());
+                            TLRPC.TL_userStatusOffline exact = new TLRPC.TL_userStatusOffline();
+                            exact.expires = timeSec;
+                                                        user.status = exact;
+                        } catch (Throwable t) {}
+                    }
 
-                        }
-
-
-
-                        public void afterHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
-
-                            try {
-
-                                Object orig = lastOnlineSwap.get();
-
-                                if (orig == null) {
-
-                                    return;
-
-                                }
-
-                                lastOnlineSwap.remove();
-
-                                if (methodHookParam.args == null || methodHookParam.args.length < 2 || !(methodHookParam.args[1] instanceof TLRPC.User)) {
-
-                                    return;
-
-                                }
-
-                                TLRPC.User user = (TLRPC.User) methodHookParam.args[1];
-
-                                boolean wasOffline = user.status instanceof TLRPC.TL_userStatusOffline;
-
+                    @Override
+                    public void afterHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
+                        try {
+                            Object orig = lastOnlineSwap.get();
+                            if (orig == null) {
+                                return;
+                            }
+                            lastOnlineSwap.remove();
+                            if (methodHookParam.args == null || methodHookParam.args.length < 2 || !(methodHookParam.args[1] instanceof TLRPC.User)) {
+                                return;
+                            }
+                            TLRPC.User user = (TLRPC.User) methodHookParam.args[1];
+                            if (user != null) {
                                 user.status = (TLRPC.UserStatus) orig;
-
-                                Object res = methodHookParam.getResult();
-
-                                if (res != null && wasOffline) {
-
-                                    methodHookParam.setResult("~ " + res);
-
-                                }
-
-                            } catch (Throwable t) {
-
                             }
-
-                        }
-
-                    }));
-
-                } catch (Exception e) {
-
-                }
-
+                            Object res = methodHookParam.getResult();
+                            if (res != null) {
+                                methodHookParam.setResult("~ " + res);
+                            }
+                        } catch (Throwable t) {}
+                    }
+                }));
+            } catch (Throwable t) {
+                Main.err("hkFormatUserStatus", new Exception(t));
             }
-
         }
-
-
 
         private void hkUpdDlg() {
             // Disabled in accordance with re:extera v2 (not needed, avoids interference)
