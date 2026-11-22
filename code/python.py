@@ -99,6 +99,37 @@ _OPT_REVISIONS = 7171
 _OPT_MARK_READ = 7272
 _OPT_VIEW_DELETED = 7373
 
+# Canonical implementations of the pure-logic helpers below live in the Java
+# side (com.maxplugins.sample.Main). Once the DEX is loaded the plugin publishes
+# it here so module-level helpers can delegate to Java; the Python bodies are
+# kept only as a fallback for the short window before the DEX is ready.
+_ACTIVE_DEX = None
+
+
+def _dex():
+    d = _ACTIVE_DEX
+    return d if (d is not None and d.loaded) else None
+
+
+def read_file_from_uri(ctx, uri):
+    try:
+        cr = ctx.getContentResolver()
+        is_stream = cr.openInputStream(uri)
+        if is_stream is None:
+            return None
+        from java.io import BufferedReader, InputStreamReader
+        reader = BufferedReader(InputStreamReader(is_stream, "UTF-8"))
+        sb = []
+        line = reader.readLine()
+        while line is not None:
+            sb.append(str(line))
+            line = reader.readLine()
+        reader.close()
+        return "\n".join(sb)
+    except Exception as e:
+        log(f"[MAX] read_file_from_uri failed: {e}")
+        return None
+
 
 class L:
     _ru = {
@@ -245,6 +276,31 @@ class L:
         "import_done": "Настройки импортированы! Перезагрузите плагин",
         "import_error": "Ошибка импорта",
         "username_or_id": "@username или id",
+        "shadowban": "Теневой бан",
+        "shadowban_empty": "Список теневого бана пуст. Добавьте пользователя из меню профиля или по ID.",
+        "shadowban_added": "Пользователь добавлен в теневой бан",
+        "shadowban_removed": "Пользователь убран из теневого бана",
+        "shadowban_hide_dialog": "Скрывать диалог",
+        "shadowban_hide_groups": "Скрывать в группах",
+        "shadowban_remove": "Убрать из теневого бана",
+        "sb_dialog_hidden": "диалог скрыт", "sb_dialog_visible": "диалог виден",
+        "sb_groups_hidden": "группы скрыты", "sb_groups_visible": "группы видны",
+        "exclusions": "Исключения чатов",
+        "exclusions_empty": "Список исключений пуст. Настройте чтение и тайпинг для отдельного чата.",
+        "exclusions_saved": "Исключение сохранено",
+        "exclusions_removed": "Исключение удалено",
+        "exclusions_reading": "Чтение", "exclusions_typing": "Тайпинг",
+        "mode_default": "По умолчанию", "mode_always": "Всегда", "mode_never": "Никогда",
+        "reading_default": "По умолчанию (как в Ghost)", "reading_always": "Всегда отправлять чтение", "reading_never": "Никогда не читать",
+        "typing_default": "По умолчанию (как в Ghost)", "typing_always": "Всегда отправлять тайпинг", "typing_never": "Никогда не показывать тайпинг",
+        "reading_for": "Чтение для чата", "typing_for": "Тайпинг для чата",
+        "enter_user_id": "Введите User ID", "enter_dialog_id": "Введите Dialog/Chat ID",
+        "by_id": "По ID", "pick_chat": "Выбрать чат", "clear_list_confirm": "Очистить весь список?", "edit": "Изменить",
+        "exclusions_row_sub": "Настройка чтения и тайпинга по отдельным чатам",
+        "shadowban_row_sub": "Управление списком скрытых пользователей",
+        "regex_quick": "Regex-фильтры (быстрый список)", "regex_quick_sub": "Фильтрация сообщений по регулярным выражениям",
+        "noforward_sub": "Обход запрета копирования и пересылки",
+        "gif_reuploader": "Перезаливка GIF", "gif_reuploader_sub": "Сохранение защищённых GIF в Избранное без ограничений",
         "cr_extera": "Без экстеры ничего бы не было",
         "cr_bleizix": "Фундамент re:extera",
         "cr_shiawasez": "Обновление re:extera (v2)",
@@ -393,6 +449,31 @@ class L:
         "import_done": "Settings imported! Reload plugin",
         "import_error": "Import error",
         "username_or_id": "@username or ID",
+        "shadowban": "Shadowban",
+        "shadowban_empty": "Shadowban list is empty. Add a user from the profile menu or by ID.",
+        "shadowban_added": "User added to shadowban",
+        "shadowban_removed": "User removed from shadowban",
+        "shadowban_hide_dialog": "Hide dialog",
+        "shadowban_hide_groups": "Hide in groups",
+        "shadowban_remove": "Remove from shadowban",
+        "sb_dialog_hidden": "dialog hidden", "sb_dialog_visible": "dialog visible",
+        "sb_groups_hidden": "groups hidden", "sb_groups_visible": "groups visible",
+        "exclusions": "Chat exclusions",
+        "exclusions_empty": "Exclusions list is empty. Configure reading and typing for a specific chat.",
+        "exclusions_saved": "Exclusion saved",
+        "exclusions_removed": "Exclusion removed",
+        "exclusions_reading": "Reading", "exclusions_typing": "Typing",
+        "mode_default": "Default", "mode_always": "Always", "mode_never": "Never",
+        "reading_default": "Default (as in Ghost)", "reading_always": "Always send read receipts", "reading_never": "Never read",
+        "typing_default": "Default (as in Ghost)", "typing_always": "Always send typing", "typing_never": "Never show typing",
+        "reading_for": "Reading for chat", "typing_for": "Typing for chat",
+        "enter_user_id": "Enter User ID", "enter_dialog_id": "Enter Dialog/Chat ID",
+        "by_id": "By ID", "pick_chat": "Pick chat", "clear_list_confirm": "Clear the whole list?", "edit": "Edit",
+        "exclusions_row_sub": "Configure reading and typing per chat",
+        "shadowban_row_sub": "Manage hidden users list",
+        "regex_quick": "Regex filters (quick list)", "regex_quick_sub": "Filter messages by regular expressions",
+        "noforward_sub": "Bypass copy and forward restrictions",
+        "gif_reuploader": "Gif reuploader", "gif_reuploader_sub": "Save protected GIFs to Saved Messages without restrictions",
         "show_in_settings": "Show in Telegram Settings", "show_in_settings_sub": "Show ExteraMax button in Telegram main settings",
         "show_in_settings_restart": "Change takes effect after app restart",
         "cr_extera": "Nothing would exist without extera",
@@ -983,6 +1064,12 @@ def _jlist(jl):
     return out
 
 def _peer_did(msg):
+    d = _dex()
+    if d is not None:
+        try:
+            return int(d.call("peerDid", msg))
+        except Exception:
+            pass
     try:
         p = msg.peer_id
         if isinstance(p, TLRPC.TL_peerUser):
@@ -996,6 +1083,13 @@ def _peer_did(msg):
     return 0
 
 def _encode_msg(msg):
+    d = _dex()
+    if d is not None:
+        try:
+            r = d.call("encodeMessageB64", msg)
+            return str(r) if r is not None else None
+        except Exception:
+            pass
     buf = None
     try:
         buf = NativeByteBuffer(msg.getObjectSize())
@@ -1013,6 +1107,12 @@ def _encode_msg(msg):
         return None
 
 def _decode_msg(raw):
+    d = _dex()
+    if d is not None and raw:
+        try:
+            return d.call("decodeMessageB64", JString(str(raw)))
+        except Exception:
+            pass
     buf = None
     try:
         data = Base64.decode(raw, Base64.NO_WRAP)
@@ -1032,6 +1132,12 @@ def _decode_msg(raw):
         return None
 
 def _format_date(ts):
+    d = _dex()
+    if d is not None:
+        try:
+            return str(d.call("formatDate", jlong(int(ts))))
+        except Exception:
+            pass
     try:
         import datetime
         dt = datetime.datetime.fromtimestamp(int(ts))
@@ -1043,6 +1149,13 @@ def _format_date(ts):
             return ""
 
 def _get_media_hash(msg):
+    d = _dex()
+    if d is not None:
+        try:
+            r = d.call("mediaHash", msg)
+            return str(r) if r is not None else None
+        except Exception:
+            pass
     try:
         if not msg:
             return None
@@ -2133,16 +2246,13 @@ class Vault:
         except Exception:
             return False
 
-    def get_removed_mids(self, did):
-        return [mid for (d, mid) in self._removed if d == int(did)]
-
     def get_removed_list(self, did):
         result = []
         try:
             conn = self._sync_conn()
             try:
                 cur = conn.cursor()
-                cur.execute("SELECT mid, data, timestamp FROM removed WHERE dialog_id=? ORDER BY timestamp DESC LIMIT 200", (int(did),))
+                cur.execute("SELECT message_id, data, timestamp FROM removed WHERE dialog_id=? ORDER BY timestamp DESC LIMIT 200", (int(did),))
                 for row in cur.fetchall():
                     mid = int(row[0])
                     text = str(row[1]) if row[1] else ""
@@ -3963,6 +4073,8 @@ class MaxReExteraPlugin(BasePlugin):
             self.dex.load()
         except Exception as e:
             log(f"[MAX] dex: {e}")
+        global _ACTIVE_DEX
+        _ACTIVE_DEX = self.dex
         self._sync_settings_to_java()
         self._sync_settings_entry()
         self.vault = Vault()
@@ -4009,6 +4121,8 @@ class MaxReExteraPlugin(BasePlugin):
         if self._gs("fake_premium", False):
             self._revert_fake_premium()
         self.dex.unload()
+        global _ACTIVE_DEX
+        _ACTIVE_DEX = None
         for u in self._unhooks:
             try:
                 self.unhook_method(u)
@@ -4539,27 +4653,6 @@ class MaxReExteraPlugin(BasePlugin):
         except Exception as e:
             log(f"[MAX] manual import picker: {e}")
 
-    # Helper for manual import
-    def read_file_from_uri(ctx, uri):
-        try:
-            from android.content import ContentResolver
-            cr = ctx.getContentResolver()
-            is_stream = cr.openInputStream(uri)
-            if is_stream is None:
-                return None
-            from java.io import BufferedReader, InputStreamReader
-            reader = BufferedReader(InputStreamReader(is_stream, "UTF-8"))
-            sb = []
-            line = reader.readLine()
-            while line is not None:
-                sb.append(str(line))
-                line = reader.readLine()
-            reader.close()
-            return "\n".join(sb)
-        except Exception as e:
-            log(f"[MAX] read_file_from_uri failed: {e}")
-            return None
-
     def _refresh_attach_folder_label(self):
         # subtext у Text(...) вычисляется один раз при построении create_settings()
         # и дальше не привязан к _get_current_folder_display(), поэтому после смены
@@ -4662,6 +4755,11 @@ class MaxReExteraPlugin(BasePlugin):
         return f"id{did}"
 
     def _fmt_size(self, size):
+        if self.dex and self.dex.loaded:
+            try:
+                return str(self.dex.call("formatSize", jlong(int(size))))
+            except Exception:
+                pass
         if size < 1024:
             return f"{size} B"
         if size < 1024 * 1024:
@@ -7862,6 +7960,11 @@ class MaxReExteraPlugin(BasePlugin):
         return False
 
     def _compare_versions(self, v1, v2):
+        if self.dex and self.dex.loaded:
+            try:
+                return int(self.dex.call("compareVersions", JString(str(v1)), JString(str(v2))))
+            except Exception:
+                pass
         try:
             def parse(v):
                 return [int(x) for x in str(v).strip().split(".")]
@@ -8168,6 +8271,11 @@ class MaxReExteraPlugin(BasePlugin):
 
     def _presence_decay(self):
         i = _int(self.get_setting("presence_decay", 1), 1)
+        if self.dex and self.dex.loaded:
+            try:
+                return int(self.dex.call("presenceDecaySeconds", jint(i)))
+            except Exception:
+                pass
         return [30, 45, 60, 120][i] if 0 <= i < 4 else 45
 
     def _presence_is_hidden(self, uid, account=None):
@@ -8338,6 +8446,11 @@ class MaxReExteraPlugin(BasePlugin):
 
     def _presence_fmt_dur(self, sec):
         sec = int(sec)
+        if self.dex and self.dex.loaded:
+            try:
+                return str(self.dex.call("formatDuration", jlong(sec)))
+            except Exception:
+                pass
         if sec < 60:
             return f"{sec}s"
         if sec < 3600:
@@ -8711,7 +8824,7 @@ class MaxReExteraPlugin(BasePlugin):
 
             return items
         items += [
-            Text(text="Исключения чатов (Exclusions)", icon="msg_permissions", subtext="Настройка чтения и тайпинга по отдельным чатам", on_click=lambda v: self._show_exclusions_manager()),
+            Text(text=L.g("exclusions"), icon="msg_permissions", subtext=L.g("exclusions_row_sub"), on_click=lambda v: self._show_exclusions_manager()),
             Divider(),
             Switch(key="ghost_mode", text=L.g("ghost_toggle"), default=False,
                    subtext=L.g("ghost_toggle_sub"), icon="ghost_solar",
@@ -8819,8 +8932,8 @@ class MaxReExteraPlugin(BasePlugin):
         items = [
             Header(text=L.g("enable_filters")),
             Switch(key="filters_enabled", text=L.g("enable_features"), default=True, subtext=L.g("enable_features_sub"), icon="msg_search", on_change=lambda v: self._on_tab_toggle("filters_enabled", v)),
-            Text(text="Теневой бан (Shadowban)", icon="msg_block", subtext="Управление списком скрытых пользователей", on_click=lambda v: self._show_shadowban_manager()),
-            Text(text="Regex-фильтры (быстрый список)", icon="msg_search", subtext="Фильтрация сообщений по регулярным выражениям", on_click=lambda v: self._show_rx_manager()),
+            Text(text=L.g("shadowban"), icon="msg_block", subtext=L.g("shadowban_row_sub"), on_click=lambda v: self._show_shadowban_manager()),
+            Text(text=L.g("regex_quick"), icon="msg_search", subtext=L.g("regex_quick_sub"), on_click=lambda v: self._show_rx_manager()),
             Divider(),
         ]
         if not self._tab_on("filters_enabled"):
@@ -8938,8 +9051,8 @@ class MaxReExteraPlugin(BasePlugin):
             Divider(),
             Header(text=L.g("bypass")),
             Switch(key="allow_screenshots", text=L.g("screenshots"), default=False, subtext=L.g("screenshots_sub")),
-            Switch(key="bypass_noforward", text=L.g("noforwards"), default=False, subtext="Обход запрета копирования и пересылки"),
-            Switch(key="gif_reuploader", text="Перезаливка GIF (Gif Reuploader)", default=True, subtext="Сохранение защищенных GIF в Избранное без ограничений"),
+            Switch(key="bypass_noforward", text=L.g("noforwards"), default=False, subtext=L.g("noforward_sub")),
+            Switch(key="gif_reuploader", text=L.g("gif_reuploader"), default=True, subtext=L.g("gif_reuploader_sub")),
             Selector(key="fwd_mode", text=L.g("fwd_mode"), default=0, items=[L.g("fwd_copy"), L.g("fwd_try")]),
             Switch(key="bypass_story_save", text=L.g("stories_bypass"), default=False, subtext=L.g("stories_bypass_sub")),
         ]
@@ -8949,34 +9062,131 @@ class MaxReExteraPlugin(BasePlugin):
         def _ui():
             try:
                 from com.maxplugins.sample import Main as JMain
-                ctx = ApplicationLoader.applicationContext
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
                 entries = JMain.ShadowbanStore.all()
-                b = AlertDialogBuilder(LaunchActivity.getLastFragment().getParentActivity())
-                b.set_title("Теневой бан")
-                if not entries or entries.isEmpty():
-                    b.set_message("Список теневого бана пуст.\n\nДобавить пользователя можно из меню профиля (три точки в профиле -> В теневой бан) или по ID ниже.")
-                else:
-                    lines = []
+                b = AlertDialogBuilder(act)
+                b.set_title(L.g("shadowban"))
+                uids = []
+                if entries and not entries.isEmpty():
+                    items = []
                     for i in range(entries.size()):
                         e = entries.get(i)
-                        lines.append(f"• ID {e.userId} (диалог: {'скрыт' if e.hideDialog else 'виден'}, группы: {'скрыты' if e.hideInGroups else 'видны'})")
-                    b.set_message("\n".join(lines))
-                b.set_positive_button("Добавить ID", lambda dlg, w: plugin._prompt_add_shadowban())
-                if entries and not entries.isEmpty():
-                    b.set_negative_button("Очистить", lambda dlg, w: JMain.ShadowbanStore.map.clear())
-                b.set_neutral_button("Закрыть", None)
+                        uids.append(int(e.userId))
+                        d_st = L.g("sb_dialog_hidden") if e.hideDialog else L.g("sb_dialog_visible")
+                        g_st = L.g("sb_groups_hidden") if e.hideInGroups else L.g("sb_groups_visible")
+                        items.append(f"{plugin._presence_user_name(int(e.userId))}\n{d_st} · {g_st}")
+                    def on_pick(dlg, which):
+                        dlg.dismiss()
+                        if 0 <= which < len(uids):
+                            run_on_ui_thread(lambda: plugin._shadowban_item_actions(uids[which]))
+                    b.set_items(items, on_pick)
+                    def on_clear(dlg, w):
+                        dlg.dismiss()
+                        def confirm():
+                            f2 = get_last_fragment()
+                            a2 = f2.getParentActivity() if f2 else None
+                            if not a2:
+                                return
+                            d2 = AlertDialogBuilder(a2)
+                            d2.set_title(L.g("shadowban"))
+                            d2.set_message(L.g("clear_list_confirm"))
+                            def do_clear(dd, w2):
+                                dd.dismiss()
+                                for u in uids:
+                                    JMain.ShadowbanStore.remove(jlong(u))
+                                BulletinHelper.show_info(L.g("cleared"))
+                                run_on_ui_thread(plugin._show_shadowban_manager)
+                            d2.set_positive_button(L.g("yes"), do_clear)
+                            d2.set_negative_button(L.g("no"), lambda dd, w2: (dd.dismiss(), run_on_ui_thread(plugin._show_shadowban_manager)))
+                            d2.show()
+                        run_on_ui_thread(confirm)
+                    b.set_negative_button(L.g("read_wl_clear_all"), on_clear)
+                else:
+                    b.set_message(L.g("shadowban_empty"))
+                b.set_positive_button(L.g("add"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._shadowban_add_menu)))
+                b.set_neutral_button(L.g("close"), lambda dlg, w: dlg.dismiss())
                 b.show()
             except Exception as e:
                 log(f"[MAX] shadowban manager error: {e}")
+        run_on_ui_thread(_ui)
+
+    def _shadowban_item_actions(self, uid):
+        plugin = self
+        def _ui():
+            try:
+                from com.maxplugins.sample import Main as JMain
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
+                e = JMain.ShadowbanStore.map.get(jlong(uid))
+                hd = bool(e.hideDialog) if e is not None else True
+                hg = bool(e.hideInGroups) if e is not None else True
+                items = [
+                    f"{L.g('shadowban_hide_dialog')}: {'✓' if hd else '✗'}",
+                    f"{L.g('shadowban_hide_groups')}: {'✓' if hg else '✗'}",
+                    L.g("shadowban_remove"),
+                ]
+                def on_pick(dlg, which):
+                    dlg.dismiss()
+                    if which == 0:
+                        JMain.ShadowbanStore.add(jlong(uid), not hd, hg)
+                    elif which == 1:
+                        JMain.ShadowbanStore.add(jlong(uid), hd, not hg)
+                    elif which == 2:
+                        JMain.ShadowbanStore.remove(jlong(uid))
+                        BulletinHelper.show_info(L.g("shadowban_removed"))
+                    run_on_ui_thread(plugin._show_shadowban_manager)
+                b = AlertDialogBuilder(act)
+                b.set_title(plugin._presence_user_name(uid))
+                b.set_items(items, on_pick)
+                b.set_negative_button(L.g("back"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._show_shadowban_manager)))
+                b.show()
+            except Exception as e:
+                log(f"[MAX] shadowban item error: {e}")
+        run_on_ui_thread(_ui)
+
+    def _shadowban_add_menu(self):
+        plugin = self
+        def _ui():
+            try:
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
+                def on_picked(ids):
+                    from com.maxplugins.sample import Main as JMain
+                    added = 0
+                    for uid in ids:
+                        if uid > 0:
+                            JMain.ShadowbanStore.add(jlong(uid), True, True)
+                            added += 1
+                    if added:
+                        BulletinHelper.show_info(f"{L.g('shadowban_added')}: {added}")
+                    run_on_ui_thread(plugin._show_shadowban_manager)
+                b = AlertDialogBuilder(act)
+                b.set_title(L.g("shadowban"))
+                b.set_items([L.g("pick_chat"), L.g("by_id")], lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(lambda: plugin._pick_chats(on_picked) if w == 0 else plugin._prompt_add_shadowban())))
+                b.set_negative_button(L.g("back"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._show_shadowban_manager)))
+                b.show()
+            except Exception as e:
+                log(f"[MAX] shadowban add menu error: {e}")
         run_on_ui_thread(_ui)
 
     def _prompt_add_shadowban(self):
         plugin = self
         def _ui():
             try:
-                b = AlertDialogBuilder(LaunchActivity.getLastFragment().getParentActivity())
-                b.set_title("Добавить в теневой бан")
-                b.set_message("Введите User ID:")
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
+                b = AlertDialogBuilder(act)
+                b.set_title(L.g("shadowban"))
+                b.set_message(L.g("enter_user_id"))
                 b.set_input_text("", "User ID")
                 def _on_save(val):
                     try:
@@ -8984,11 +9194,14 @@ class MaxReExteraPlugin(BasePlugin):
                         if uid > 0:
                             from com.maxplugins.sample import Main as JMain
                             JMain.ShadowbanStore.add(jlong(uid), True, True)
-                            BulletinHelper.show_success(f"Пользователь {uid} добавлен в теневой бан")
-                    except Exception as ex:
-                        log(f"[MAX] add shadowban error: {ex}")
-                b.set_positive_button("Сохранить", lambda dlg, w: _on_save(b.get_input_text()))
-                b.set_negative_button("Отмена", None)
+                            BulletinHelper.show_success(L.g("shadowban_added"))
+                            run_on_ui_thread(plugin._show_shadowban_manager)
+                        else:
+                            BulletinHelper.show_error(L.g("invalid_id"))
+                    except Exception:
+                        BulletinHelper.show_error(L.g("invalid_id"))
+                b.set_positive_button(L.g("save"), lambda dlg, w: (dlg.dismiss(), _on_save(b.get_input_text())))
+                b.set_negative_button(L.g("cancel"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._show_shadowban_manager)))
                 b.show()
             except Exception as e:
                 log(f"[MAX] prompt shadowban error: {e}")
@@ -8999,44 +9212,128 @@ class MaxReExteraPlugin(BasePlugin):
         def _ui():
             try:
                 from com.maxplugins.sample import Main as JMain
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
                 entries = JMain.ExclusionsStore.all()
-                b = AlertDialogBuilder(LaunchActivity.getLastFragment().getParentActivity())
-                b.set_title("Исключения чатов")
-                if not entries or entries.isEmpty():
-                    b.set_message("Список исключений пуст.\n\nВы можете настроить чтение и тайпинг для конкретного чата по ID ниже.")
-                else:
-                    mode_names = {0: "По умолчанию", 1: "Всегда", 2: "Никогда"}
-                    lines = []
+                mode_names = {0: L.g("mode_default"), 1: L.g("mode_always"), 2: L.g("mode_never")}
+                b = AlertDialogBuilder(act)
+                b.set_title(L.g("exclusions"))
+                dids = []
+                if entries and not entries.isEmpty():
+                    items = []
                     for i in range(entries.size()):
                         e = entries.get(i)
-                        lines.append(f"• Чат {e.dialogId}: чтение={mode_names.get(e.reading, '?')}, тайпинг={mode_names.get(e.typing, '?')}")
-                    b.set_message("\n".join(lines))
-                b.set_positive_button("Добавить", lambda dlg, w: plugin._prompt_add_exclusion())
-                if entries and not entries.isEmpty():
-                    b.set_negative_button("Очистить", lambda dlg, w: JMain.ExclusionsStore.map.clear())
-                b.set_neutral_button("Закрыть", None)
+                        dids.append(int(e.dialogId))
+                        r = mode_names.get(int(e.reading), "?")
+                        t = mode_names.get(int(e.typing), "?")
+                        items.append(f"{plugin._chat_display_name(int(e.dialogId))}\n{L.g('exclusions_reading')}: {r} · {L.g('exclusions_typing')}: {t}")
+                    def on_pick(dlg, which):
+                        dlg.dismiss()
+                        if 0 <= which < len(dids):
+                            run_on_ui_thread(lambda: plugin._exclusion_item_actions(dids[which]))
+                    b.set_items(items, on_pick)
+                    def on_clear(dlg, w):
+                        dlg.dismiss()
+                        def confirm():
+                            f2 = get_last_fragment()
+                            a2 = f2.getParentActivity() if f2 else None
+                            if not a2:
+                                return
+                            d2 = AlertDialogBuilder(a2)
+                            d2.set_title(L.g("exclusions"))
+                            d2.set_message(L.g("clear_list_confirm"))
+                            def do_clear(dd, w2):
+                                dd.dismiss()
+                                for d in dids:
+                                    JMain.ExclusionsStore.remove(jlong(d))
+                                BulletinHelper.show_info(L.g("cleared"))
+                                run_on_ui_thread(plugin._show_exclusions_manager)
+                            d2.set_positive_button(L.g("yes"), do_clear)
+                            d2.set_negative_button(L.g("no"), lambda dd, w2: (dd.dismiss(), run_on_ui_thread(plugin._show_exclusions_manager)))
+                            d2.show()
+                        run_on_ui_thread(confirm)
+                    b.set_negative_button(L.g("read_wl_clear_all"), on_clear)
+                else:
+                    b.set_message(L.g("exclusions_empty"))
+                b.set_positive_button(L.g("add"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._exclusion_add_menu)))
+                b.set_neutral_button(L.g("close"), lambda dlg, w: dlg.dismiss())
                 b.show()
             except Exception as e:
                 log(f"[MAX] exclusions manager error: {e}")
+        run_on_ui_thread(_ui)
+
+    def _exclusion_item_actions(self, did):
+        plugin = self
+        def _ui():
+            try:
+                from com.maxplugins.sample import Main as JMain
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
+                items = [L.g("edit"), L.g("delete")]
+                def on_pick(dlg, which):
+                    dlg.dismiss()
+                    if which == 0:
+                        run_on_ui_thread(lambda: plugin._prompt_configure_exclusion_modes(did))
+                    elif which == 1:
+                        JMain.ExclusionsStore.remove(jlong(did))
+                        BulletinHelper.show_info(L.g("exclusions_removed"))
+                        run_on_ui_thread(plugin._show_exclusions_manager)
+                b = AlertDialogBuilder(act)
+                b.set_title(plugin._chat_display_name(did))
+                b.set_items(items, on_pick)
+                b.set_negative_button(L.g("back"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._show_exclusions_manager)))
+                b.show()
+            except Exception as e:
+                log(f"[MAX] exclusion item error: {e}")
+        run_on_ui_thread(_ui)
+
+    def _exclusion_add_menu(self):
+        plugin = self
+        def _ui():
+            try:
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
+                def on_picked(ids):
+                    if ids:
+                        run_on_ui_thread(lambda: plugin._prompt_configure_exclusion_modes(ids[0]))
+                b = AlertDialogBuilder(act)
+                b.set_title(L.g("exclusions"))
+                b.set_items([L.g("pick_chat"), L.g("by_id")], lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(lambda: plugin._pick_chats(on_picked) if w == 0 else plugin._prompt_add_exclusion())))
+                b.set_negative_button(L.g("back"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._show_exclusions_manager)))
+                b.show()
+            except Exception as e:
+                log(f"[MAX] exclusion add menu error: {e}")
         run_on_ui_thread(_ui)
 
     def _prompt_add_exclusion(self):
         plugin = self
         def _ui():
             try:
-                b = AlertDialogBuilder(LaunchActivity.getLastFragment().getParentActivity())
-                b.set_title("Настройка исключения")
-                b.set_message("Введите Dialog/Chat ID:")
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
+                b = AlertDialogBuilder(act)
+                b.set_title(L.g("exclusions"))
+                b.set_message(L.g("enter_dialog_id"))
                 b.set_input_text("", "Dialog ID")
                 def _on_save(val):
                     try:
                         did = int(str(val).strip())
                         if did != 0:
-                            plugin._prompt_configure_exclusion_modes(did)
-                    except Exception as ex:
-                        log(f"[MAX] add exclusion error: {ex}")
-                b.set_positive_button("Далее", lambda dlg, w: _on_save(b.get_input_text()))
-                b.set_negative_button("Отмена", None)
+                            run_on_ui_thread(lambda: plugin._prompt_configure_exclusion_modes(did))
+                        else:
+                            BulletinHelper.show_error(L.g("invalid_id"))
+                    except Exception:
+                        BulletinHelper.show_error(L.g("invalid_id"))
+                b.set_positive_button(L.g("add"), lambda dlg, w: (dlg.dismiss(), _on_save(b.get_input_text())))
+                b.set_negative_button(L.g("cancel"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._show_exclusions_manager)))
                 b.show()
             except Exception as e:
                 log(f"[MAX] prompt exclusion error: {e}")
@@ -9047,12 +9344,16 @@ class MaxReExteraPlugin(BasePlugin):
         def _ui():
             try:
                 from com.maxplugins.sample import Main as JMain
-                items = ["По умолчанию (как в Ghost)", "Всегда отправлять чтение (белый список)", "Никогда не читать (скрытно)"]
-                b = AlertDialogBuilder(LaunchActivity.getLastFragment().getParentActivity())
-                b.set_title(f"Чтение для чата {did}")
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
+                items = [L.g("reading_default"), L.g("reading_always"), L.g("reading_never")]
+                b = AlertDialogBuilder(act)
+                b.set_title(f"{L.g('reading_for')} {did}")
                 curr_r = JMain.ExclusionsStore.getMode(jlong(did), True)
-                b.set_single_choice_items(items, curr_r, lambda dlg, which: plugin._prompt_configure_typing_mode(did, which))
-                b.set_negative_button("Отмена", None)
+                b.set_single_choice_items(items, curr_r, lambda dlg, which: (dlg.dismiss(), run_on_ui_thread(lambda: plugin._prompt_configure_typing_mode(did, which))))
+                b.set_negative_button(L.g("cancel"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._show_exclusions_manager)))
                 b.show()
             except Exception as e:
                 log(f"[MAX] exclusion reading dlg: {e}")
@@ -9063,15 +9364,21 @@ class MaxReExteraPlugin(BasePlugin):
         def _ui():
             try:
                 from com.maxplugins.sample import Main as JMain
-                items = ["По умолчанию (как в Ghost)", "Всегда отправлять тайпинг", "Никогда не показывать тайпинг"]
-                b = AlertDialogBuilder(LaunchActivity.getLastFragment().getParentActivity())
-                b.set_title(f"Тайпинг для чата {did}")
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
+                items = [L.g("typing_default"), L.g("typing_always"), L.g("typing_never")]
+                b = AlertDialogBuilder(act)
+                b.set_title(f"{L.g('typing_for')} {did}")
                 curr_t = JMain.ExclusionsStore.getMode(jlong(did), False)
                 def _on_select(dlg, which):
+                    dlg.dismiss()
                     JMain.ExclusionsStore.set(jlong(did), reading_mode, which)
-                    BulletinHelper.show_success(f"Исключение для чата {did} сохранено")
+                    BulletinHelper.show_success(L.g("exclusions_saved"))
+                    run_on_ui_thread(plugin._show_exclusions_manager)
                 b.set_single_choice_items(items, curr_t, _on_select)
-                b.set_negative_button("Отмена", None)
+                b.set_negative_button(L.g("cancel"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._show_exclusions_manager)))
                 b.show()
             except Exception as e:
                 log(f"[MAX] exclusion typing dlg: {e}")
