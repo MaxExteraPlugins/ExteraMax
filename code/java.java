@@ -1,320 +1,169 @@
 package com.maxplugins.sample;
 
-
-
 import android.app.Activity;
-
 import android.app.AlertDialog;
-
 import android.app.Dialog;
-
 import android.content.ClipData;
-
-import android.content.ContentValues;
-
 import android.content.ClipboardManager;
-
+import android.content.ContentValues;
 import android.content.Context;
-
 import android.content.DialogInterface;
-
 import android.content.Intent;
-
 import android.content.SharedPreferences;
-
 import android.database.Cursor;
-
 import android.database.sqlite.SQLiteDatabase;
-
 import android.database.sqlite.SQLiteOpenHelper;
-
 import android.database.sqlite.SQLiteStatement;
-
 import android.graphics.Bitmap;
-
 import android.graphics.BitmapFactory;
-
 import android.graphics.Canvas;
-
 import android.graphics.Color;
-
 import android.graphics.ColorFilter;
-
 import android.graphics.Outline;
-
 import android.graphics.Paint;
-
 import android.graphics.Path;
-
 import android.graphics.PorterDuff;
-
 import android.graphics.PorterDuffColorFilter;
-
 import android.graphics.Rect;
-
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
-
 import android.graphics.drawable.GradientDrawable;
-
 import android.media.MediaMetadataRetriever;
-
 import android.net.Uri;
-
 import android.os.Bundle;
-import android.os.SystemClock;
-import android.text.Layout;
-
 import android.os.Environment;
-
 import android.os.Handler;
-
 import android.os.HandlerThread;
-
 import android.os.Looper;
-
 import android.os.PowerManager;
-
+import android.os.SystemClock;
 import android.text.Editable;
-
+import android.text.Layout;
 import android.text.SpannableStringBuilder;
-
-import android.text.TextWatcher;
-
-import android.text.style.CharacterStyle;
-
-import android.text.style.ForegroundColorSpan;
-
 import android.text.TextUtils;
-
+import android.text.TextWatcher;
+import android.text.style.CharacterStyle;
+import android.text.style.ForegroundColorSpan;
 import android.util.Base64;
-
 import android.util.Log;
-
 import android.util.SparseArray;
-
 import android.util.TypedValue;
-
 import android.view.Gravity;
-
 import android.view.MotionEvent;
-
 import android.view.View;
-
-import android.view.ViewOutlineProvider;
-
 import android.view.ViewGroup;
-
+import android.view.ViewOutlineProvider;
 import android.view.Window;
-
 import android.view.WindowManager;
-
 import android.view.inputmethod.InputMethodManager;
-
 import android.widget.EditText;
-
 import android.widget.FrameLayout;
-
 import android.widget.HorizontalScrollView;
-
 import android.widget.ImageView;
-
 import android.widget.LinearLayout;
-
 import android.widget.ScrollView;
-
 import android.widget.SeekBar;
-
 import android.widget.Switch;
-
 import android.widget.TextView;
-
 import android.widget.Toast;
 
-import android.graphics.Typeface;
-
 import androidx.collection.LongSparseArray;
-
 import androidx.core.content.ContextCompat;
-
 import androidx.core.content.FileProvider;
-
 import androidx.recyclerview.widget.LinearLayoutManager;
-
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.exteragram.messenger.utils.ui.TextPaint;
 
 import de.robv.android.xposed.XC_MethodHook;
-
 import de.robv.android.xposed.XposedBridge;
 
 import java.io.File;
-
 import java.io.FileInputStream;
-
 import java.io.FileOutputStream;
-
-import java.lang.reflect.Field;
-
-import java.lang.reflect.InvocationHandler;
-
-import java.lang.reflect.Method;
-
-import java.lang.reflect.Proxy;
-
-import java.text.SimpleDateFormat;
-
-import java.util.ArrayList;
-
-import java.util.Collection;
-
-import java.util.Collections;
-
-import java.util.Comparator;
-
-import java.util.Date;
-
-import java.util.HashMap;
-
-import java.util.HashSet;
-
-import java.util.LinkedHashSet;
-
-import java.util.Iterator;
-
-import java.util.List;
-
-import java.util.Locale;
-
-import java.util.Map;
-
-import java.util.Set;
-
-import java.util.WeakHashMap;
-
-import java.util.concurrent.ConcurrentHashMap;
-
-import java.util.concurrent.ConcurrentLinkedQueue;
-
 import java.lang.ref.WeakReference;
-
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import java.util.regex.Pattern;
 
 import org.json.JSONArray;
-
 import org.json.JSONObject;
 
 import org.telegram.messenger.AccountInstance;
-
 import org.telegram.messenger.AndroidUtilities;
-
 import org.telegram.messenger.ApplicationLoader;
-
 import org.telegram.messenger.BaseController;
-
 import org.telegram.messenger.BotInlineKeyboard;
-
 import org.telegram.messenger.ChatObject;
-
 import org.telegram.messenger.ContactsController;
-
 import org.telegram.messenger.FileLoader;
-
 import org.telegram.messenger.FlagSecureReason;
-
 import org.telegram.messenger.ImageLocation;
-
 import org.telegram.messenger.LocaleController;
-
 import org.telegram.messenger.MessageObject;
-
 import org.telegram.messenger.MessagesController;
-
 import org.telegram.messenger.MessagesStorage;
-
-import org.telegram.messenger.NotificationsController;
-
 import org.telegram.messenger.NotificationCenter;
-
+import org.telegram.messenger.NotificationsController;
 import org.telegram.messenger.R;
-
 import org.telegram.messenger.SendMessagesHelper;
-
 import org.telegram.messenger.UserConfig;
-
 import org.telegram.messenger.Utilities;
-
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.RequestDelegate;
-
 import org.telegram.tgnet.SerializedData;
-
 import org.telegram.tgnet.TLObject;
-
 import org.telegram.tgnet.TLRPC;
-
-import org.telegram.tgnet.tl.TL_keyboard;
-
 import org.telegram.tgnet.tl.TL_account;
-
+import org.telegram.tgnet.tl.TL_keyboard;
 import org.telegram.tgnet.tl.TL_stars;
-
 import org.telegram.ui.ActionBar.ActionBar;
-
 import org.telegram.ui.ActionBar.ActionBarMenu;
-
 import org.telegram.ui.ActionBar.ActionBarMenuItem;
-
 import org.telegram.ui.ActionBar.ActionBarMenuSubItem;
-
 import org.telegram.ui.ActionBar.BackDrawable;
-
 import org.telegram.ui.ActionBar.BaseFragment;
-
 import org.telegram.ui.ActionBar.Theme;
-
 import org.telegram.ui.Cells.ChatMessageCell;
-
 import org.telegram.ui.ChatActivity;
-
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
-
 import org.telegram.ui.Components.AnimatedEmojiSpan;
-
 import org.telegram.ui.Components.BackupImageView;
-
 import org.telegram.ui.Components.BulletinFactory;
-
 import org.telegram.ui.Components.ChatAvatarContainer;
-
-import org.telegram.ui.Components.ColoredImageSpan;
-
-import org.telegram.ui.Components.EditTextBoldCursor;
-
-import org.telegram.ui.Components.LayoutHelper;
-
-import org.telegram.ui.Components.PopupSwipeBackLayout;
-
-import org.telegram.ui.Components.RecyclerListView;
-
-import org.telegram.ui.Components.SizeNotifierFrameLayout;
-
-import org.telegram.ui.Components.UItem;
-
 import org.telegram.ui.Components.ColorPicker;
-
+import org.telegram.ui.Components.ColoredImageSpan;
+import org.telegram.ui.Components.EditTextBoldCursor;
+import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.Components.PopupSwipeBackLayout;
+import org.telegram.ui.Components.RecyclerListView;
+import org.telegram.ui.Components.SizeNotifierFrameLayout;
+import org.telegram.ui.Components.UItem;
 import org.telegram.ui.LaunchActivity;
-
 import org.telegram.ui.ProfileActivity;
-
 import org.telegram.ui.SecretVoicePlayer;
-
 import org.telegram.ui.SettingsActivity;
-
-/* loaded from: C:\Users\max\Desktop\Temp\extracted_classes.dex */
 
 public class Main {
 
@@ -680,7 +529,7 @@ public class Main {
                                     } else if (++attempts < 30) {
                                         AndroidUtilities.runOnUIThread(this, 500);
                                     } else {
-                                        showErrorBulletin("Не удалось загрузить GIF");
+                                        showErrorBulletin(tr("Не удалось загрузить GIF","Failed to load GIF"));
                                     }
                                 }
                             }, 500);
@@ -716,10 +565,10 @@ public class Main {
                 SendMessagesHelper.getInstance(account).sendMessage(params);
 
                 org.telegram.messenger.MediaDataController.getInstance(account).addRecentGif(document, (int) (System.currentTimeMillis() / 1000), true);
-                showSuccessBulletin("GIF сохранён в Избранное!");
+                showSuccessBulletin(tr("GIF сохранён в Избранное!","GIF saved to Saved Messages!"));
             } catch (Throwable t) {
                 Main.err("sendGifToSaved", new Exception(t));
-                showErrorBulletin("Ошибка сохранения GIF");
+                showErrorBulletin(tr("Ошибка сохранения GIF","Failed to save GIF"));
             }
         }
 
@@ -796,7 +645,7 @@ public class Main {
 
     private static boolean presenceDirty = false;
 
-    private static final Runnable keepTick = new Runnable() { // from class: com.maxplugins.sample.Main.1
+    private static final Runnable keepTick = new Runnable() {
 
         @Override // java.lang.Runnable
 
@@ -826,7 +675,7 @@ public class Main {
 
     };
 
-    private static final Runnable presenceTick = new Runnable() { // from class: com.maxplugins.sample.Main.2
+    private static final Runnable presenceTick = new Runnable() {
 
         @Override // java.lang.Runnable
 
@@ -852,15 +701,11 @@ public class Main {
 
     private static final Set<Long> purgeDialogs = ConcurrentHashMap.newKeySet();
 
-
-
-    static /* synthetic */ boolean access$3800() {
+    static boolean access$3800() {
 
         return ownDelSkip();
 
     }
-
-
 
     public static void load() {
 
@@ -920,7 +765,7 @@ public class Main {
 
             startVaultCleanupLoop();
 
-            new Thread(new Runnable() { // from class: com.maxplugins.sample.Main.22
+            new Thread(new Runnable() {
 
                 @Override // java.lang.Runnable
 
@@ -940,8 +785,6 @@ public class Main {
 
     }
 
-
-
     static void lambda$load$0() {
 
         try {
@@ -953,8 +796,6 @@ public class Main {
         }
 
     }
-
-
 
     public static void unload() {
 
@@ -978,19 +819,15 @@ public class Main {
 
     }
 
-
-
     public static void pyShowDeletedList() {
 
         showDeletedList();
 
     }
 
-
-
     public static void pyPurgeChatDeleted(final long j) {
 
-        ui(new Runnable() { // from class: com.maxplugins.sample.Main.20
+        ui(new Runnable() {
 
             @Override // java.lang.Runnable
 
@@ -1259,7 +1096,7 @@ public class Main {
                     refreshCells();
                     BaseFragment frag = LaunchActivity.getLastFragment();
                     if (frag != null) {
-                        BulletinFactory.of(frag).createSuccessBulletin("Все чаты успешно синхронизированы с сервером").show();
+                        BulletinFactory.of(frag).createSuccessBulletin(tr("Все чаты успешно синхронизированы с сервером","All chats synced with server")).show();
                     }
                 } catch (Throwable ignored) {}
                 if (onDone != null) onDone.run();
@@ -1316,7 +1153,7 @@ public class Main {
                                         }
                                         ca.updateMessagesVisiblePart(true);
                                         Main.forceUpdateViews(account, did, null);
-                                        BulletinFactory.of(ca).createSuccessBulletin("История чата синхронизирована с сервером").show();
+                                        BulletinFactory.of(ca).createSuccessBulletin(tr("История чата синхронизирована с сервером","Chat history synced with server")).show();
                                     }
                                 }
                             } catch (Throwable t) {
@@ -1330,8 +1167,6 @@ public class Main {
             err("reloadChatFromCloud", new Exception(t));
         }
     }
-
-
 
     static void lambda$pyPurgeChatDeleted$1(long j) {
 
@@ -1347,9 +1182,7 @@ public class Main {
 
     }
 
-
-
-    /* JADX INFO: Access modifiers changed from: private */
+    
 
     public static void purgeChatDeleted(long j) {
 
@@ -1403,7 +1236,7 @@ public class Main {
 
         final long purgeDialog = j;
 
-        new Thread(new Runnable() { // from class: com.maxplugins.sample.Main.0
+        new Thread(new Runnable() {
 
             @Override // java.lang.Runnable
 
@@ -1424,8 +1257,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }).start();
 
     }
-
-
 
     private static void animatePurge(long dialogId, ArrayList<Integer> mids) {
 
@@ -1505,8 +1336,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     public static boolean isRu() {
 
         try {
@@ -1538,8 +1367,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         return false;
 
     }
-
-
 
     public static String tr(String ru, String en) {
 
@@ -1663,8 +1490,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     public static void pyShowMessageHistoryWithRevisions(final long did, final int mid, final String revisionsJson) {
 
         if (revisionsJson != null && !revisionsJson.isEmpty()) {
@@ -1723,23 +1548,17 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     public static Config getConfig() {
 
         return cfg;
 
     }
 
-
-
     public static VaultDb getDb() {
 
         return db;
 
     }
-
-
 
     public static class DeletedIconSpan extends ColoredImageSpan {
         private final Drawable iconDrawable;
@@ -1773,8 +1592,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             }
         }
     }
-
-
 
     public static class TrashIconDrawable extends Drawable {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -2008,8 +1825,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
     }
 
-
-
     public static Drawable getDeletedIcon() {
 
         if (delIcon == null) {
@@ -2044,15 +1859,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     public static boolean isGhost() {
 
         return cfg != null && cfg.isGhost();
 
     }
-
-
 
     public static void sendOffline() {
 
@@ -2072,9 +1883,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
-    /* JADX INFO: Access modifiers changed from: private */
+    
 
     public static void setPremium(Object obj, boolean z) {
 
@@ -2144,8 +1953,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     private static void updateKeepAlive() {
 
         if (cfg == null) {
@@ -2165,8 +1972,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
     }
-
-
 
     private static void startKeepAlive() {
 
@@ -2200,8 +2005,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     private static void stopKeepAlive() {
 
         try {
@@ -2223,8 +2026,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
     }
-
-
 
     private static void applyLocalPremium() {
 
@@ -2278,8 +2079,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     private static void notifyPremiumChanged() {
 
         for (int i = 0; i < 16; i++) {
@@ -2326,8 +2125,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     private static void startPresenceLoop() {
 
         if (H == null) {
@@ -2341,8 +2138,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         H.postDelayed(presenceTick, 5000L);
 
     }
-
-
 
     private static void startVaultCleanupLoop() {
 
@@ -2396,8 +2191,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     private static void purgeStaleVaultEntries() {
 
         // Ранее здесь был N+1: по одному MessagesStorage.getMessage на каждую
@@ -2413,8 +2206,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         // действиями пользователя (очистка/удаление), записи с mid<=0 — в loadKeys.
 
     }
-
-
 
     static void sendTL(TLObject tLObject) {
 
@@ -2432,7 +2223,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
                     if (parameterTypes.length == 2 && parameterTypes[0] == TLObject.class) {
 
-                        method.invoke(connectionsManager, tLObject, Proxy.newProxyInstance(parameterTypes[1].getClassLoader(), new Class[]{parameterTypes[1]}, new InvocationHandler() { // from class: com.maxplugins.sample.Main.14
+                        method.invoke(connectionsManager, tLObject, Proxy.newProxyInstance(parameterTypes[1].getClassLoader(), new Class[]{parameterTypes[1]}, new InvocationHandler() {
 
                             @Override // java.lang.reflect.InvocationHandler
 
@@ -2458,15 +2249,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     static Object lambda$sendTL$3(Object obj, Method method, Object[] objArr) throws Throwable {
 
         return null;
 
     }
-
-
 
     public static void toggleGhost() {
 
@@ -2481,8 +2268,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
     }
-
-
 
     public static void markMyDel(final ArrayList<Integer> arrayList, long j) {
 
@@ -2504,7 +2289,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         if (H != null) {
 
-            H.postDelayed(new Runnable() { // from class: com.maxplugins.sample.Main.10
+            H.postDelayed(new Runnable() {
 
                 @Override // java.lang.Runnable
 
@@ -2520,8 +2305,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     static void lambda$markMyDel$4(ArrayList arrayList, long j) {
 
         Iterator it = arrayList.iterator();
@@ -2535,8 +2318,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
     }
-
-
 
     public static void markMyDelWithOut(final ArrayList<Integer> arrayList, long j) {
 
@@ -2572,7 +2353,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
             final long dialogId = j;
 
-            H.postDelayed(new Runnable() { // from class: com.maxplugins.sample.Main.4
+            H.postDelayed(new Runnable() {
 
                 @Override // java.lang.Runnable
 
@@ -2587,8 +2368,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
     }
-
-
 
     static void lambda$markMyDelWithOut$5(ArrayList arrayList, long j) {
 
@@ -2614,8 +2393,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     public static boolean isMyDel(long j, int i) {
 
         if (myDelMids.contains(j + ":" + i)) return true;
@@ -2625,8 +2402,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         return myOutMids.contains(Long.valueOf(i));
 
     }
-
-
 
     // Fallback for cases where dialog ID is not available (e.g., batch updates).
 
@@ -2650,15 +2425,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     public static boolean isMyOutDel(int i) {
 
         return myOutMids.contains(Long.valueOf(i));
 
     }
-
-
 
     public static void sendRead(long j, int i) {
 
@@ -2710,8 +2481,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     private static TLObject newReadHistory() {
 
         String[] strArr = {"org.telegram.tgnet.TLRPC$TL_messages_readHistory", "org.telegram.tgnet.tl.TL_messages$TL_messages_readHistory"};
@@ -2732,19 +2501,15 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     public static void refreshCells() {
 
         refreshCellsForMids(null);
 
     }
 
-
-
     public static void refreshCellsForMids(final ArrayList<Integer> arrayList) {
 
-        Runnable runnable = new Runnable() { // from class: com.maxplugins.sample.Main.12
+        Runnable runnable = new Runnable() {
 
             @Override // java.lang.Runnable
 
@@ -2763,8 +2528,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
     }
-
-
 
     public static void refreshCellsForMidsNow(final ArrayList<Integer> arrayList) {
 
@@ -2929,8 +2692,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     private static void cleanupAds() {
 
         for (int i = 0; i < 16; i++) {
@@ -2954,8 +2715,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
     }
-
-
 
     private static void revertPremium() {
 
@@ -2985,8 +2744,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     static void ui(Runnable runnable) {
 
         if (H != null) {
@@ -3005,15 +2762,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     static void err(String str, Exception exc) {
 
         Log.e(TAG, "[" + str + "] " + exc.getMessage(), exc);
 
     }
-
-
 
     static boolean isBotDialog(long dialogId) {
 
@@ -3033,13 +2786,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
-    /* JADX INFO: Access modifiers changed from: private */
+    
 
     public static void showDeletedList() {
 
-        ui(new Runnable() { // from class: com.maxplugins.sample.Main.13
+        ui(new Runnable() {
 
             @Override // java.lang.Runnable
 
@@ -3052,8 +2803,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         });
 
     }
-
-
 
     static void lambda$showDeletedList$14() {
 
@@ -3117,9 +2866,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
-    /* JADX INFO: Access modifiers changed from: private */
+    
 
     public static String encodeData(String str, MessageObject messageObject) {
 
@@ -3149,27 +2896,21 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
                         i = 4;
 
-                    } else {
-
-                        if (!messageObject.isSticker() && !messageObject.isAnimatedSticker()) {
-
-                            if (messageObject.isGif()) {
-
-                                i = 6;
-
-                            } else if (messageObject.isMusic()) {
-
-                                i = 7;
-
-                            } else {
-
-                                i = messageObject.getDocument() != null ? 8 : 0;
-
-                            }
-
-                        }
+                    } else if (messageObject.isSticker() || messageObject.isAnimatedSticker()) {
 
                         i = 5;
+
+                    } else if (messageObject.isGif()) {
+
+                        i = 6;
+
+                    } else if (messageObject.isMusic()) {
+
+                        i = 7;
+
+                    } else {
+
+                        i = messageObject.getDocument() != null ? 8 : 0;
 
                     }
 
@@ -3225,11 +2966,9 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
+    
 
-
-    /* JADX INFO: Access modifiers changed from: private */
-
-    /* loaded from: C:\Users\max\Desktop\Temp\extracted_classes.dex */
+    
 
     public static class Meta {
 
@@ -3242,8 +2981,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         long s;
 
         String text;
-
-
 
         private Meta() {
 
@@ -3261,9 +2998,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
-    /* JADX INFO: Access modifiers changed from: private */
+    
 
     public static Meta parseData(String str) {
 
@@ -3333,9 +3068,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
-    /* JADX INFO: Access modifiers changed from: private */
+    
 
     public static String userNameOf(TLRPC.User user) {
 
@@ -3376,8 +3109,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         return trim;
 
     }
-
-
 
     private static MessageObject getMessage(int currentAccount, long did, int mid) {
 
@@ -3447,8 +3178,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     public static long getDialogIdFromMessage(TLRPC.Message msg) {
 
         if (msg == null) return 0L;
@@ -3477,8 +3206,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     public static int resolveAccount(Object source) {
 
         if (source instanceof BaseController) {
@@ -3496,8 +3223,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         return UserConfig.selectedAccount;
 
     }
-
-
 
     public static void processEditsInUpdates(Object mcObj, Object updatesObj) {
 
@@ -3563,8 +3288,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     private static void checkAndSaveEdit(Object upd, int currentAccount) {
 
         if (upd == null) return;
@@ -3590,8 +3313,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
     }
-
-
 
     private static void processEditedMessage(final TLRPC.Message message, final int currentAccount) {
 
@@ -3657,9 +3378,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
-    /* loaded from: C:\Users\max\Desktop\Temp\extracted_classes.dex */
+    
 
     public static class DeletedMessagesFragment extends BaseFragment {
 
@@ -3683,11 +3402,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         private int reloadGeneration;
 
-
-
         void setDialogId(long d) { did = d; }
-
-
 
         @Override public boolean onFragmentCreate() {
 
@@ -3704,8 +3419,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             return super.onFragmentCreate();
 
         }
-
-
 
         @Override public View createView(Context context) {
 
@@ -3725,7 +3438,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
             ActionBarMenu dmfMenu = actionBar.createMenu();
             ActionBarMenuItem dmfOtherItem = dmfMenu.addItem(10, R.drawable.ic_ab_other);
-            dmfOtherItem.addSubItem(11, R.drawable.msg_delete, "Очистить ВСЕ удалёнки");
+            dmfOtherItem.addSubItem(11, R.drawable.msg_delete, tr("Очистить все удалёнки","Clear ALL deleted"));
 
             actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
 
@@ -3736,14 +3449,14 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
                         try {
                             AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
                             builder.setTitle("ExteraMax");
-                            builder.setMessage("Полностью очистить ВСЕ сохранённые удалённые сообщения во всех чатах?");
-                            builder.setPositiveButton("Очистить всё", (dialog, which) -> {
+                            builder.setMessage(tr("Полностью очистить ВСЕ сохранённые удалённые сообщения во всех чатах?","Completely clear ALL saved deleted messages across all chats?"));
+                            builder.setPositiveButton(tr("Очистить всё","Clear all"), (dialog, which) -> {
                                 dialog.dismiss();
                                 Main.clearAllDeletedData(() -> {
                                     reloadMessages();
                                 });
                             });
-                            builder.setNegativeButton("Отмена", (dialog, which) -> dialog.dismiss());
+                            builder.setNegativeButton(tr("Отмена","Cancel"), (dialog, which) -> dialog.dismiss());
                             showDialog(builder.create());
                         } catch (Throwable ignored) {}
                     }
@@ -3949,8 +3662,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         private void updateHeader(int messageCount) {
 
             if (actionBar == null) return;
@@ -3970,8 +3681,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             }
 
         }
-
-
 
         private void reloadMessages() {
 
@@ -3997,8 +3706,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         private void openProfile(long peerId) {
 
             Bundle args = new Bundle();
@@ -4012,8 +3719,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             presentFragment(new org.telegram.ui.ProfileActivity(args));
 
         }
-
-
 
         public void didPressUserAvatar(ChatMessageCell cell, TLRPC.User user, float touchX, float touchY, boolean asForward) {
 
@@ -4197,8 +3902,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     @SuppressWarnings({"rawtypes", "unchecked"})
 
     private static class DeletedAdapter extends RecyclerView.Adapter {
@@ -4221,8 +3924,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         private final ArrayList<MessageObject> rows = new ArrayList<>();
 
-
-
         DeletedAdapter(Context context, long did, int currentAccount, Theme.ResourcesProvider resourcesProvider) {
 
             this.context = context;
@@ -4237,11 +3938,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         int getMessageCount() { return items.size(); }
-
-
 
         void reloadAsync(long dialogId, Runnable onDone) {
 
@@ -4274,8 +3971,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
                         int itemDate = meta.d > minValidDate ? meta.d : (item.ts > 1000000000000L ? (int) (item.ts / 1000) : (int) item.ts);
 
                         if (itemDate < minValidDate || itemDate > nowSec + 86400) continue;
-
-
 
                         // Bug fix: this used to purge the vault entry whenever
 
@@ -4425,8 +4120,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         private ArrayList<MessageObject> buildRows(ArrayList<MessageObject> source) {
 
             ArrayList<MessageObject> result = new ArrayList<>();
@@ -4453,8 +4146,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         private String getDateKey(MessageObject mo) {
 
             java.util.Calendar cal = new java.util.GregorianCalendar();
@@ -4464,8 +4155,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             return cal.get(java.util.Calendar.YEAR) + "_" + cal.get(java.util.Calendar.DAY_OF_YEAR);
 
         }
-
-
 
         private MessageObject createDateObject(int date) {
 
@@ -4489,8 +4178,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         @Override public long getItemId(int position) {
 
             MessageObject row = rows.get(position);
@@ -4499,15 +4186,9 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         @Override public int getItemCount() { return rows.size(); }
 
-
-
         @Override public int getItemViewType(int position) { return rows.get(position).isDateObject ? VIEW_TYPE_DATE : VIEW_TYPE_MESSAGE; }
-
-
 
         @Override
 
@@ -4534,8 +4215,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             return new RecyclerListView.Holder(view);
 
         }
-
-
 
         @Override
 
@@ -4585,8 +4264,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         private boolean isSameGroup(MessageObject first, MessageObject second) {
 
             return first != null && second != null && first.isOutOwner() == second.isOutOwner() && first.getFromChatId() == second.getFromChatId() && Math.abs(first.messageOwner.date - second.messageOwner.date) <= 300;
@@ -4594,8 +4271,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
     }
-
-
 
     public static class MessageHistoryFragment extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
 
@@ -4625,8 +4300,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         private int reloadGeneration;
 
-
-
         public static MessageHistoryFragment newInstance(long did, int mid) {
 
             MessageHistoryFragment f = new MessageHistoryFragment();
@@ -4642,8 +4315,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             return f;
 
         }
-
-
 
         @Override public boolean onFragmentCreate() {
 
@@ -4677,8 +4348,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         @Override public void onFragmentDestroy() {
 
             NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.emojiLoaded);
@@ -4688,8 +4357,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             super.onFragmentDestroy();
 
         }
-
-
 
         @Override public void didReceivedNotification(int id, int account, Object... args) {
 
@@ -4704,8 +4371,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             }
 
         }
-
-
 
         @Override public View createView(Context context) {
 
@@ -4731,8 +4396,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
             actionBar.setTitle("");
 
-
-
             avatarContainer = new ChatAvatarContainer(context, (BaseFragment) null, false, resourcesProvider);
 
             avatarContainer.setOccupyStatusBar(!AndroidUtilities.isTablet());
@@ -4743,8 +4406,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
             updateHeader(0);
 
-
-
             contentView = new SizeNotifierFrameLayout(context);
 
             contentView.setOccupyStatusBar(!AndroidUtilities.isTablet());
@@ -4752,8 +4413,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             contentView.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
 
             int topInset = ActionBar.getCurrentActionBarHeight() + (actionBar.getOccupyStatusBar() ? AndroidUtilities.statusBarHeight : 0);
-
-
 
             chatListView = new RecyclerListView(context, resourcesProvider) {
 
@@ -4881,15 +4540,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
             chatListView.setOnItemLongClickListener((view, position, x, y) -> showMessageMenu(view));
 
-
-
             adapter = new HistoryAdapter(context, currentChat, currentUser, resourcesProvider, getCurrentAccount());
 
             chatListView.setAdapter(adapter);
 
             contentView.addView(chatListView, LayoutHelper.createFrame(-1, -1.0f));
-
-
 
             emptyView = new TextView(context);
 
@@ -4905,8 +4560,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
             contentView.addView(emptyView, LayoutHelper.createFrame(-2, -2, Gravity.CENTER));
 
-
-
             contentView.addView(actionBar);
 
             fragmentView = contentView;
@@ -4916,8 +4569,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             return fragmentView;
 
         }
-
-
 
         private void updateHeader(int messageCount) {
 
@@ -4957,8 +4608,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         private void reloadMessages() {
 
             if (adapter == null) return;
@@ -4996,8 +4645,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             });
 
         }
-
-
 
         private boolean showMessageMenu(View view) {
 
@@ -5063,8 +4710,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         private void openProfile(long peerId) {
 
             Bundle args = new Bundle();
@@ -5080,8 +4725,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
     }
-
-
 
     @SuppressWarnings({"rawtypes", "unchecked"})
 
@@ -5107,8 +4750,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         private final ArrayList<MessageObject> rows = new ArrayList<>();
 
-
-
         HistoryAdapter(Context context, TLRPC.Chat currentChat, TLRPC.User currentUser, Theme.ResourcesProvider resourcesProvider, int currentAccount) {
 
             this.context = context;
@@ -5125,11 +4766,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         int getMessageCount() { return items.size(); }
-
-
 
         private ArrayList<TLRPC.Message> loadVersionsFromPyVault(long did, int mid, TLRPC.Message template) {
 
@@ -5227,8 +4864,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         void reloadAsync(final long did, final int mid, final Runnable onDone) {
 
             final int gen = ++loadGeneration;
@@ -5238,8 +4873,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
                 MessageObject liveObj = Main.getMessage(currentAccount, did, mid);
 
                 TLRPC.Message template = liveObj != null ? liveObj.messageOwner : null;
-
-
 
                 ArrayList<TLRPC.Message> versions = Main.db.listVersionsOfEditedMessage(did, mid);
 
@@ -5271,8 +4904,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
                 }
 
-
-
                 final ArrayList<MessageObject> loadedItems = new ArrayList<>();
 
                 for (TLRPC.Message v : versions) {
@@ -5282,8 +4913,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
                     loadedItems.add(new MessageObject(currentAccount, v, false, false));
 
                 }
-
-
 
                 if (liveObj != null && liveObj.messageOwner != null) {
 
@@ -5317,11 +4946,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
                 }
 
-
-
                 loadedItems.sort((a, b) -> Integer.compare(a.messageOwner.date, b.messageOwner.date));
-
-
 
                 // Deduplicate identical adjacent versions
 
@@ -5355,8 +4980,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
                 }
 
-
-
                 final ArrayList<MessageObject> loadedRows = buildRows(deduped);
 
                 final ArrayList<MessageObject> finalItems = new ArrayList<>(deduped);
@@ -5382,8 +5005,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             });
 
         }
-
-
 
         private ArrayList<MessageObject> buildRows(ArrayList<MessageObject> source) {
 
@@ -5437,8 +5058,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         private MessageObject createHeaderObject(String title, int date) {
 
             TLRPC.TL_message dateMsg = new TLRPC.TL_message();
@@ -5461,27 +5080,19 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         @Override public long getItemId(int position) {
 
             return position;
 
         }
 
-
-
         @Override public int getItemCount() { return rows.size(); }
-
-
 
         @Override public int getItemViewType(int position) {
 
             return rows.get(position).isDateObject ? VIEW_TYPE_DATE : VIEW_TYPE_MESSAGE;
 
         }
-
-
 
         @Override public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
 
@@ -5507,8 +5118,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         @Override public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
 
             MessageObject current = rows.get(position);
@@ -5530,8 +5139,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
     }
-
-
 
     public static String findAttachFile(long j, int i) {
 
@@ -5574,8 +5181,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         return null;
 
     }
-
-
 
     private static File getAttachDir() {
 
@@ -5645,8 +5250,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     private static void ensureNomedia(File file) {
 
         if (file == null) {
@@ -5687,8 +5290,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     public static void pyEnsureNomedia(String str) {
 
         if (str == null || str.isEmpty()) {
@@ -5713,17 +5314,13 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     private static void saveAttachments(long j, ArrayList<Integer> arrayList) {
 
         saveAttachments(j, arrayList, null);
 
     }
 
-
-
-    /* JADX INFO: Access modifiers changed from: private */
+    
 
     public static void saveAttachments(final long j, ArrayList<Integer> arrayList, Map<Long, MessageObject> map) {
 
@@ -5759,7 +5356,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         final HashMap hashMap = map != null ? new HashMap(map) : null;
 
-        ui(new Runnable() { // from class: com.maxplugins.sample.Main.9
+        ui(new Runnable() {
 
             @Override // java.lang.Runnable
 
@@ -5772,8 +5369,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         });
 
     }
-
-
 
     static void lambda$saveAttachments$15(ArrayList arrayList, Map map, long j) {
 
@@ -5829,8 +5424,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     private static void saveMediaFile(final TLRPC.Message message, final long j, final int i, final MessageObject messageObject) {
 
         if (message == null || message.media == null || cfg == null || !cfg.b("save_attachments", false)) {
@@ -5861,7 +5454,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-        new Thread(new Runnable() { // from class: com.maxplugins.sample.Main.15
+        new Thread(new Runnable() {
 
             @Override // java.lang.Runnable
 
@@ -5874,8 +5467,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }).start();
 
     }
-
-
 
     static void lambda$saveMediaFile$16(TLRPC.Message message, long j, int i, MessageObject messageObject) {
 
@@ -6001,8 +5592,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     private static File findLocalFile(TLRPC.Message message, FileLoader fileLoader) {
 
         TLRPC.PhotoSize closestPhotoSizeWithSize;
@@ -6067,8 +5656,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     private static void startDownload(TLRPC.Message message, MessageObject messageObject, int i, FileLoader fileLoader) {
 
         TLRPC.PhotoSize closestPhotoSizeWithSize;
@@ -6105,9 +5692,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
-    /* JADX INFO: Access modifiers changed from: private */
+    
 
     public static MessageObject findMessageInChat(long j, int i) {
 
@@ -6169,8 +5754,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     static Object mapGet(Object obj, int i) {
 
         if (obj == null) {
@@ -6209,9 +5792,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
-    /* JADX INFO: Access modifiers changed from: private */
+    
 
     public static MessageObject findMessageInController(int i) {
 
@@ -6234,8 +5815,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
     }
-
-
 
     private static File getFileFromMessage(MessageObject messageObject) {
 
@@ -6315,8 +5894,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     private static void copyFile(File file, File file2) {
 
         try {
@@ -6350,8 +5927,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
     }
-
-
 
     private static void loadPresence() {
 
@@ -6443,8 +6018,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     private static void savePresence() {
 
         if (!presenceDirty || cfg == null) {
@@ -6515,9 +6088,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
-    /* JADX INFO: Access modifiers changed from: private */
+    
 
     public static void presenceTickInternal() {
 
@@ -6573,7 +6144,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-        // "Сохранять последний онлайн" пишет presenceLastSeen без трекера —
+        // tr("Сохранять последний онлайн","Save last online") пишет presenceLastSeen без трекера —
 
         // сбрасывать dirty на диск нужно и без presence_track.
 
@@ -6605,9 +6176,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
-    /* JADX INFO: Access modifiers changed from: private */
+    
 
     public static void presenceRemember(long j, long j2) {
 
@@ -6619,9 +6188,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
-    // Запись "когда пользователь был в сети" — только если время свежее уже
+    // Запись tr("когда пользователь был в сети","when user was online") — только если время свежее уже
 
     // зафиксированного (апдейты могут приходить не по порядку).
 
@@ -6644,8 +6211,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         presenceRemember(uid, ts);
 
     }
-
-
 
     static void sf(Object obj, String str, Object obj2) {
 
@@ -6701,8 +6266,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     static void sfFlag(Object obj, String fieldName, Object value, int bitMask) {
 
         sf(obj, fieldName, value);
@@ -6745,8 +6308,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     static Object gf(Object obj, String str) {
 
         try {
@@ -6776,8 +6337,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
     }
-
-
 
     static long peer2did(TLRPC.Peer peer) {
 
@@ -6809,9 +6368,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
-    /* loaded from: C:\Users\max\Desktop\Temp\extracted_classes.dex */
+    
 
     public static class Config {
 
@@ -6820,8 +6377,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         private final Map<String, Object> c = new ConcurrentHashMap();
 
         private final SharedPreferences p;
-
-
 
         static {
 
@@ -6842,15 +6397,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         Config(Context context) {
 
             this.p = context.getSharedPreferences(Main.PREFS, 0);
 
         }
-
-
 
         private String tabOf(String str) {
 
@@ -6867,8 +6418,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             return str2;
 
         }
-
-
 
         public boolean b(String str, boolean z) {
 
@@ -6894,8 +6443,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         public void set(String str, boolean z) {
 
             this.c.put(str, Boolean.valueOf(z));
@@ -6903,8 +6450,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             this.p.edit().putBoolean(str, z).apply();
 
         }
-
-
 
         public int i(String str, int i) {
 
@@ -6930,8 +6475,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         public void set(String str, int i) {
 
             this.c.put(str, Integer.valueOf(i));
@@ -6940,15 +6483,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         public String s(String str, String str2) {
 
             return tabOf(str) != null ? "" : this.p.getString(str, str2);
 
         }
-
-
 
         boolean isGhost() {
 
@@ -6956,15 +6495,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         public void flush() {
 
             this.c.clear();
 
         }
-
-
 
         public SharedPreferences prefs() {
 
@@ -6973,8 +6508,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
     }
-
-
 
     public static void pyFlushConfig() {
 
@@ -7004,8 +6537,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
     public static void pySyncFilters(String str) {
 
         try {
@@ -7023,8 +6554,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
     }
-
-
 
     private static boolean ownDelSkip() {
 
@@ -7046,9 +6575,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     }
 
-
-
-    /* loaded from: C:\Users\max\Desktop\Temp\extracted_classes.dex */
+    
 
     public static class VaultDb {
 
@@ -7066,8 +6593,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         private final Handler dbHandler;
 
-
-
         VaultDb(Context context) {
 
             this.helper = new DbHelper(context, new File(context.getFilesDir(), "exteramax.db").getAbsolutePath());
@@ -7083,8 +6608,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             loadKeys();
 
         }
-
-
 
         void postToDbThread(Runnable r) { dbHandler.post(r); }
 
@@ -7117,8 +6640,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
                 return 0;
             }
         }
-
-
 
         private void ensureColumns() {
 
@@ -7189,8 +6710,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             }
 
         }
-
-
 
         private void loadKeys() {
 
@@ -7269,15 +6788,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         private static long pk(long j, int i) {
 
             return (j << 32) ^ (i & 4294967295L);
 
         }
-
-
 
         public boolean isRem(long j, int i) {
             return Main.isDeletedMsg(j, i);
@@ -7321,8 +6836,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             }
         }
 
-
-
         // Check if message ID exists in vault for ANY dialog (used when dialog_id unavailable)
 
         public boolean isRemAny(int i) {
@@ -7340,8 +6853,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             return false;
 
         }
-
-
 
         public long remTs(long j, int i) {
 
@@ -7371,8 +6882,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         public void markRem(long j, Collection<Integer> collection, Map<Integer, String> map) {
 
             if (j == 489000L) return;
@@ -7380,8 +6889,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             markRemAsync(j, collection, map, null);
 
         }
-
-
 
         public void markRemAsync(long did, Collection<Integer> mids, Map<Integer, String> dataMap, Runnable onDone) {
 
@@ -7447,8 +6954,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         public int countRemovedForDialog(long j) {
 
             try {
@@ -7468,8 +6973,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             }
 
         }
-
-
 
         public List<DeletedItem> getRemovedListPage(long j, int i, int i2) {
 
@@ -7495,15 +6998,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         public void purgeAllForDialog(long j) {
 
             purgeAllForDialogAsync(j, null);
 
         }
-
-
 
         public void purgeAllForDialogAsync(long did, Runnable onDone) {
 
@@ -7535,8 +7034,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         public ArrayList<Integer> allMessageIdsByDid(long did) {
 
             ArrayList<Integer> out = new ArrayList<>();
@@ -7555,8 +7052,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         public String getData(long did, int mid) {
 
             try {
@@ -7574,8 +7069,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             } catch (Exception e) { return null; }
 
         }
-
-
 
         public ArrayList<Integer> getRemovedMids(long j) {
 
@@ -7601,9 +7094,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
-        /* loaded from: C:\Users\max\Desktop\Temp\extracted_classes.dex */
+        
 
         public static class DeletedItem {
 
@@ -7615,15 +7106,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
             public final int attachmentSaved;
 
-
-
             public DeletedItem(int i, String str, long j) {
 
                 this(i, str, j, 0);
 
             }
-
-
 
             public DeletedItem(int i, String str, long j, int attachmentSaved) {
 
@@ -7639,15 +7126,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         public void updateRemovedText(long j, Map<Integer, String> map) {
 
             updateRemovedTextAsync(j, map, null);
 
         }
-
-
 
         public void updateRemovedTextAsync(long did, Map<Integer, String> textMap, Runnable onDone) {
 
@@ -7691,8 +7174,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         // Mark attachment as successfully saved for a specific message
 
         public void markAttachmentSaved(long did, int mid) {
@@ -7719,8 +7200,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         // Mark attachment as failed/missing for a specific message (download failed)
 
         public void markAttachmentMissing(long did, int mid) {
@@ -7746,8 +7225,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             });
 
         }
-
-
 
         // Check if attachment was saved for a message
 
@@ -7777,15 +7254,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         public void purge(long j, ArrayList<Integer> arrayList) {
 
             purgeAsync(j, arrayList, null);
 
         }
-
-
 
         public void purgeAsync(long did, ArrayList<Integer> mids, Runnable onDone) {
 
@@ -7819,23 +7292,17 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         public boolean isReadWhitelisted(long j) {
 
             return this.readWhitelist.contains(Long.valueOf(j));
 
         }
 
-
-
         public ArrayList<Long> getReadWhitelist() {
 
             return new ArrayList<>(this.readWhitelist);
 
         }
-
-
 
         public boolean addReadWhitelist(long j) {
 
@@ -7867,8 +7334,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         public boolean removeReadWhitelist(long j) {
 
             if (j <= 0) {
@@ -7891,15 +7356,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
-
-
         public ArrayList<String> getRegex() {
 
             return new ArrayList<>(this.regex);
 
         }
-
-
 
                 public void saveShadowban(final long uid, final boolean hideDialog, final boolean hideInGroups) {
             postToDbThread(new Runnable() {
@@ -7990,8 +7451,6 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         public boolean removeRegex(String str) {
 
             if (str == null) {
@@ -8022,8 +7481,6 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         public boolean hasEdits(long j, int i) {
 
             try {
@@ -8049,8 +7506,6 @@ public boolean addRegex(String str) {
             }
 
         }
-
-
 
         public ArrayList<TLRPC.Message> listVersionsOfEditedMessage(long did, int mid) {
 
@@ -8083,8 +7538,6 @@ public boolean addRegex(String str) {
             return out;
 
         }
-
-
 
         public List<EditItem> getEdits(long j, int i) {
 
@@ -8126,15 +7579,11 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         public void saveOrig(long j, int i, TLRPC.Message message) {
 
             saveOrigAsync(j, i, message, null);
 
         }
-
-
 
         public void saveOrigAsync(long j, int i, TLRPC.Message message, Runnable onDone) {
 
@@ -8180,15 +7629,11 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         public void saveVer(long j, int i, TLRPC.Message message) {
 
             saveVerAsync(j, i, message, null);
 
         }
-
-
 
         public void saveVerAsync(long j, int i, TLRPC.Message message, Runnable onDone) {
 
@@ -8256,15 +7701,11 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         public void wipe() {
 
             wipeAsync(null);
 
         }
-
-
 
         public void wipeAsync(Runnable onDone) {
 
@@ -8304,8 +7745,6 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         private static byte[] ser(TLRPC.Message message) {
 
             if (message == null) {
@@ -8326,8 +7765,6 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         static TLRPC.Message deser(byte[] bArr) {
 
             if (bArr == null || bArr.length == 0) {
@@ -8346,9 +7783,7 @@ public boolean addRegex(String str) {
 
         }
 
-
-
-        /* loaded from: C:\Users\max\Desktop\Temp\extracted_classes.dex */
+        
 
         public static class EditItem {
 
@@ -8357,8 +7792,6 @@ public boolean addRegex(String str) {
             public final long ts;
 
             public final int ver;
-
-
 
             public EditItem(int i, long j, String str) {
 
@@ -8372,11 +7805,9 @@ public boolean addRegex(String str) {
 
         }
 
+        
 
-
-        /* JADX INFO: Access modifiers changed from: private */
-
-        /* loaded from: C:\Users\max\Desktop\Temp\extracted_classes.dex */
+        
 
         public static class DbHelper extends SQLiteOpenHelper {
 
@@ -8385,8 +7816,6 @@ public boolean addRegex(String str) {
                 super(context, str, (SQLiteDatabase.CursorFactory) null, 9);
 
             }
-
-
 
             @Override
 
@@ -8397,8 +7826,6 @@ public boolean addRegex(String str) {
                 db.execSQL("PRAGMA foreign_keys=ON");
 
             }
-
-
 
             @Override // android.database.sqlite.SQLiteOpenHelper
 
@@ -8420,8 +7847,6 @@ public boolean addRegex(String str) {
 
             }
 
-
-
             @Override // android.database.sqlite.SQLiteOpenHelper
 
             public void onUpgrade(SQLiteDatabase sQLiteDatabase, int i, int i2) {
@@ -8433,8 +7858,6 @@ public boolean addRegex(String str) {
         }
 
     }
-
-
 
     public static class ColorCircle extends View {
 
@@ -8449,8 +7872,6 @@ public boolean addRegex(String str) {
         private Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
         private Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-
-
 
         public ColorCircle(Context context, int color, boolean isCustom) {
 
@@ -8470,11 +7891,7 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         public void setSelectedColor(boolean s) { this.isSelected = s; invalidate(); }
-
-
 
         @Override
 
@@ -8508,7 +7925,7 @@ public boolean addRegex(String str) {
 
             } else if (isDefault) {
 
-                // "По умолчанию" — серый кружок: цвет метки не переопределяется
+                // tr("По умолчанию","Default") — серый кружок: цвет метки не переопределяется
 
                 fillPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
 
@@ -8534,8 +7951,6 @@ public boolean addRegex(String str) {
 
     }
 
-
-
     public static class DeletedCustomizeFragment extends BaseFragment {
 
         // Кастомизация вида удалённых сообщений (перенесено из re:extera
@@ -8557,8 +7972,6 @@ public boolean addRegex(String str) {
         private SeekBar alphaSlider;
 
         private TextView alphaValue;
-
-
 
         @Override
 
@@ -8674,8 +8087,6 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         private FrameLayout card(Context ctx) {
 
             FrameLayout c = new FrameLayout(ctx);
@@ -8685,8 +8096,6 @@ public boolean addRegex(String str) {
             return c;
 
         }
-
-
 
         private FrameLayout buildPreview(Context ctx) {
 
@@ -8768,9 +8177,7 @@ public boolean addRegex(String str) {
 
         }
 
-
-
-        // Секция "метка": своё текстовое слово + кнопка выбора эмодзи (короткое
+        // Секция tr("метка","label"): своё текстовое слово + кнопка выбора эмодзи (короткое
 
         // нажатие — выбор, долгое — сброс). Если и то и другое пусто — значок корзины.
 
@@ -8830,8 +8237,6 @@ public boolean addRegex(String str) {
 
                 public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
-
-
                 @Override
 
                 public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -8847,8 +8252,6 @@ public boolean addRegex(String str) {
                     }
 
                 }
-
-
 
                 @Override
 
@@ -8884,9 +8287,7 @@ public boolean addRegex(String str) {
 
         }
 
-
-
-        // Цвет метки: "по умолчанию" (цвет темы), 5 стандартных и произвольный
+        // Цвет метки: tr("по умолчанию","default") (цвет темы), 5 стандартных и произвольный
 
         // (ColorPicker). Пишется в del_mark_color (int, 0 = по умолчанию).
 
@@ -8988,8 +8389,6 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         private void showColorPickerDialog(int initialColor) {
 
             try {
@@ -9064,8 +8463,6 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         private void refreshColors() {
 
             if (colorsLayout == null) return;
@@ -9101,8 +8498,6 @@ public boolean addRegex(String str) {
             }
 
         }
-
-
 
         // Прозрачность: переключатель + слайдер 10–100%.
 
@@ -9218,13 +8613,9 @@ public boolean addRegex(String str) {
 
                 }
 
-
-
                 @Override
 
                 public void onStartTrackingTouch(SeekBar seekBar) {}
-
-
 
                 @Override
 
@@ -9309,8 +8700,6 @@ public boolean addRegex(String str) {
             return sec;
         }
 
-
-
         private void applyAlphaToPreview() {
 
             if (previewCell == null) return;
@@ -9330,8 +8719,6 @@ public boolean addRegex(String str) {
             previewCell.invalidate();
 
         }
-
-
 
         private void refreshPreview() {
 
@@ -9355,7 +8742,7 @@ public boolean addRegex(String str) {
 
                         // setMessageObject с forceUpdate=true пересоздаёт currentTimeString
 
-                        // "с нуля" из даты сообщения, а hkMeasureTime вставит в неё
+                        // tr("с нуля","from scratch") из даты сообщения, а hkMeasureTime вставит в неё
 
                         // метку с текущими настройками (префикс/эмодзи/значок/цвет).
 
@@ -9378,8 +8765,6 @@ public boolean addRegex(String str) {
             }
 
         }
-
-
 
         @Override
 
@@ -9404,10 +8789,6 @@ public boolean addRegex(String str) {
         }
 
     }
-
-
-
-
 
     public static void showDeletedCustomize() {
 
@@ -9457,8 +8838,6 @@ public boolean addRegex(String str) {
 
     }
 
-
-
     public static void copyError(String text) {
 
         try {
@@ -9471,9 +8850,7 @@ public boolean addRegex(String str) {
 
     }
 
-
-
-    /* loaded from: C:\Users\max\Desktop\Temp\extracted_classes.dex */
+    
 
     public static class HookManager {
 
@@ -9519,8 +8896,6 @@ public boolean addRegex(String str) {
 
         private final ArrayList<FilterRule> rxRules = new ArrayList<>();
 
-
-
         private static Set<String> mSet(Object... args) {
 
             HashSet<String> s = new HashSet<>(args.length);
@@ -9531,15 +8906,11 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         private static Set<String> mSet2(Object... args) {
 
             return mSet(args);
 
         }
-
-
 
         private static Set<String> mSet3(Object... args) {
 
@@ -9547,23 +8918,17 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         private static Set<String> mSet4(Object... args) {
 
             return mSet(args);
 
         }
 
-
-
-        static /* synthetic */ float access$3600() {
+        static float access$3600() {
 
             return delOp();
 
         }
-
-
 
         public void init() {
 
@@ -9580,8 +8945,6 @@ public boolean addRegex(String str) {
             }
 
         }
-
-
 
         public void rebuildRegex() {
 
@@ -9609,11 +8972,9 @@ public boolean addRegex(String str) {
 
         }
 
+        
 
-
-        /* JADX INFO: Access modifiers changed from: private */
-
-        /* loaded from: C:\Users\max\Desktop\Temp\extracted_classes.dex */
+        
 
         public static class FilterRule {
 
@@ -9623,15 +8984,11 @@ public boolean addRegex(String str) {
 
             Pattern pattern;
 
-
-
             private FilterRule() {
 
             }
 
         }
-
-
 
         public void handleSyncFilters(String str) {
 
@@ -9691,9 +9048,7 @@ public boolean addRegex(String str) {
 
         }
 
-
-
-        /* JADX INFO: Access modifiers changed from: private */
+        
 
         public boolean isCurrentChannel() {
 
@@ -9719,13 +9074,11 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         private void hkChatMenu3dot() {
 
             try {
 
-                this.hooks.add(XposedBridge.hookMethod(ChatActivity.class.getDeclaredMethod("createView", Context.class), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.1
+                this.hooks.add(XposedBridge.hookMethod(ChatActivity.class.getDeclaredMethod("createView", Context.class), new XC_MethodHook() {
 
                     public void afterHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -9779,9 +9132,7 @@ public boolean addRegex(String str) {
 
         }
 
-
-
-        /* JADX INFO: Access modifiers changed from: private */
+        
 
         public static void inject3DotMenu(final ChatActivity chatActivity) {
 
@@ -9929,7 +9280,7 @@ public boolean addRegex(String str) {
 
                 }
 
-                ActionBarMenuItem.addItem(viewGroup, R.drawable.msg_archive_hide, "Посмотреть удалёнки", false, resourcesProvider).setOnClickListener(new View.OnClickListener() {
+                ActionBarMenuItem.addItem(viewGroup, R.drawable.msg_archive_hide, tr("Посмотреть удалёнки","View deleted"), false, resourcesProvider).setOnClickListener(new View.OnClickListener() {
 
                     @Override
 
@@ -9941,7 +9292,7 @@ public boolean addRegex(String str) {
 
                 });
 
-                ActionBarMenuItem.addItem(viewGroup, R.drawable.msg_delete_filled, "Очистить удалёнки", false, resourcesProvider).setOnClickListener(new View.OnClickListener() {
+                ActionBarMenuItem.addItem(viewGroup, R.drawable.msg_delete_filled, tr("Очистить удалёнки","Clear deleted"), false, resourcesProvider).setOnClickListener(new View.OnClickListener() {
 
                     @Override
 
@@ -9963,7 +9314,7 @@ public boolean addRegex(String str) {
                     }
                 });
 
-                ActionBarMenuItem.addItem(viewGroup, R.drawable.msg_retry, "Синхронизировать чат", false, resourcesProvider).setOnClickListener(new View.OnClickListener() {
+                ActionBarMenuItem.addItem(viewGroup, R.drawable.msg_retry, tr("Синхронизировать чат","Sync chat"), false, resourcesProvider).setOnClickListener(new View.OnClickListener() {
                     @Override
                     public final void onClick(View view) {
                         try {
@@ -9973,7 +9324,7 @@ public boolean addRegex(String str) {
                     }
                 });
 
-                ActionBarMenuItem.addItem(viewGroup, R.drawable.msg_retry, "Синхронизировать все чаты", false, resourcesProvider).setOnClickListener(new View.OnClickListener() {
+                ActionBarMenuItem.addItem(viewGroup, R.drawable.msg_retry, tr("Синхронизировать все чаты","Sync all chats"), false, resourcesProvider).setOnClickListener(new View.OnClickListener() {
                     @Override
                     public final void onClick(View view) {
                         try {
@@ -10005,8 +9356,6 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         static void lambda$inject3DotMenu$0(Object obj, View view) {
 
             try {
@@ -10018,8 +9367,6 @@ public boolean addRegex(String str) {
             }
 
         }
-
-
 
         static void lambda$inject3DotMenu$1(ActionBarMenuItem actionBarMenuItem, View view) {
 
@@ -10035,8 +9382,6 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         static void lambda$inject3DotMenu$2(ActionBarMenuItem actionBarMenuItem, ChatActivity chatActivity, View view) {
 
             try {
@@ -10051,8 +9396,6 @@ public boolean addRegex(String str) {
 
         }
 
-
-
         static void lambda$inject3DotMenu$3(ActionBarMenuSubItem actionBarMenuSubItem, View view) {
 
             try {
@@ -10064,8 +9407,6 @@ public boolean addRegex(String str) {
             }
 
         }
-
-
 
         private static void confirmPurge3dot(ChatActivity chatActivity) {
 
@@ -10107,9 +9448,9 @@ try {
 
                 builder.setTitle("ExteraMax");
 
-                builder.setMessage("Удалить все сохранённые удалённые сообщения в этом чате?");
+                builder.setMessage(tr("Удалить все сохранённые удалённые сообщения в этом чате?","Delete all saved deleted messages in this chat?"));
 
-                builder.setPositiveButton("Удалить", (dialog, which) -> {
+                builder.setPositiveButton(tr("Удалить","Delete"), (dialog, which) -> {
 
                     try {
 
@@ -10147,7 +9488,7 @@ try {
                         dialog.dismiss();
                         Main.clearAllDeletedData(() -> {
                             try {
-                                BulletinFactory.of(chatActivity).createSuccessBulletin("Все сохранённые удалёнки очищены").show();
+                                BulletinFactory.of(chatActivity).createSuccessBulletin(tr("Все сохранённые удалёнки очищены","All saved deleted cleared")).show();
                             } catch (Throwable ignored) {}
                         });
                     } catch (Exception ignored) {}
@@ -10158,8 +9499,6 @@ try {
                 Main.err("purgeAll3d", e);
             }
         }
-
-
 
                 // ==================== Hooks: Shadowban, Filters, GifReupload ====================
         private void hkShadowban() {
@@ -10241,7 +9580,7 @@ try {
                                     if (otherItem == null) return;
 
                                     final boolean isBanned = ShadowbanStore.map.containsKey(Long.valueOf(userId));
-                                    String title = isBanned ? "Убрать из теневого бана" : "В теневой бан";
+                                    String title = isBanned ? tr("Убрать из теневого бана","Remove from shadowban") : tr("В теневой бан","Shadowban");
                                     int icon = isBanned ? R.drawable.msg_block2 : R.drawable.msg_block;
 
                                     otherItem.addSubItem(889301, icon, title).setOnClickListener(new View.OnClickListener() {
@@ -10252,7 +9591,7 @@ try {
                                                 ShadowbanStore.remove(userId);
                                                 BaseFragment frag = LaunchActivity.getLastFragment();
                                                 if (frag != null) {
-                                                    BulletinFactory.of(frag).createSuccessBulletin("Убран из теневого бана").show();
+                                                    BulletinFactory.of(frag).createSuccessBulletin(tr("Убран из теневого бана","Removed from shadowban")).show();
                                                 }
                                             } else {
                                                 showShadowbanDialog(profile.getParentActivity(), userId);
@@ -10274,7 +9613,7 @@ try {
             if (context == null) return;
             try {
                 AlertDialog.Builder builder = new AlertDialog.Builder(context);
-                builder.setTitle("Теневой бан");
+                builder.setTitle(tr("Теневой бан","Shadowban"));
 
                 LinearLayout layout = new LinearLayout(context);
                 layout.setOrientation(LinearLayout.VERTICAL);
@@ -10284,7 +9623,7 @@ try {
                 final boolean[] hideInGroups = new boolean[]{true};
 
                 org.telegram.ui.Cells.TextCheckCell checkDialog = new org.telegram.ui.Cells.TextCheckCell(context);
-                checkDialog.setTextAndCheck("Скрыть диалог", hideDialog[0], false);
+                checkDialog.setTextAndCheck(tr("Скрыть диалог","Hide dialog"), hideDialog[0], false);
                 checkDialog.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
@@ -10295,7 +9634,7 @@ try {
                 layout.addView(checkDialog);
 
                 org.telegram.ui.Cells.TextCheckCell checkGroups = new org.telegram.ui.Cells.TextCheckCell(context);
-                checkGroups.setTextAndCheck("Скрыть сообщения в группах", hideInGroups[0], false);
+                checkGroups.setTextAndCheck(tr("Скрыть сообщения в группах","Hide in groups"), hideInGroups[0], false);
                 checkGroups.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
@@ -10306,13 +9645,13 @@ try {
                 layout.addView(checkGroups);
 
                 builder.setView(layout);
-                builder.setPositiveButton("Забанить", new DialogInterface.OnClickListener() {
+                builder.setPositiveButton(tr("Забанить","Ban"), new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface d, int which) {
                         ShadowbanStore.add(userId, hideDialog[0], hideInGroups[0]);
                         BaseFragment frag = LaunchActivity.getLastFragment();
                         if (frag != null) {
-                            BulletinFactory.of(frag).createSuccessBulletin("Добавлен в теневой бан").show();
+                            BulletinFactory.of(frag).createSuccessBulletin(tr("Добавлен в теневой бан","Added to shadowban")).show();
                         }
                     }
                 });
@@ -10340,7 +9679,7 @@ try {
                                 boolean inGroup = mo.getDialogId() < 0;
                                 boolean hidden = (inGroup && ShadowbanStore.hidesInGroups(mo.getFromChatId())) || RegexFiltersStore.isFiltered(mo);
                                 if (hidden) {
-                                    mo.messageText = "Сообщение отфильтровано";
+                                    mo.messageText = tr("Сообщение отфильтровано","Message filtered");
                                     mo.messageTextShort = null;
                                     if (mo.caption != null) mo.caption = "Сообщение отфильтровано";
                                 }
@@ -10474,17 +9813,13 @@ private void go() throws Exception {
 
         }
 
-
-
-        /* JADX INFO: Access modifiers changed from: private */
+        
 
         public static long dpk(long j, int i) {
 
             return (j << 32) ^ (i & 4294967295L);
 
         }
-
-
 
         private static void ef() {
             if (fInit) {
@@ -10516,8 +9851,6 @@ private void go() throws Exception {
                 fTp = null;
             }
         }
-
-
 
         public static float delOp() {
 
@@ -10555,8 +9888,6 @@ private void go() throws Exception {
 
         }
 
-
-
         /* Принудительный сброс кэша прозрачности удалёнки.
 
            Нужен для экрана настроек (DeletedCustomizeFragment), где предпросмотр
@@ -10568,8 +9899,6 @@ private void go() throws Exception {
             cachedDelOpTs = 0;
 
         }
-
-
 
         private static void markCellDeleted(ChatMessageCell chatMessageCell, boolean z) {
 
@@ -10595,9 +9924,7 @@ private void go() throws Exception {
 
         }
 
-
-
-        /* JADX INFO: Access modifiers changed from: private */
+        
 
         public static boolean isCellMarkedDeleted(ChatMessageCell chatMessageCell) {
 
@@ -10605,13 +9932,9 @@ private void go() throws Exception {
 
         }
 
-
-
         // Invisible guard prefix to reliably detect "stamp already inserted" regardless of custom label
 
         private static final String MARK_GUARD = "\u200b\u2063";
-
-
 
         // Cached stamp spans to avoid recreation on every bind
 
@@ -10628,8 +9951,6 @@ private void go() throws Exception {
         private static volatile int cachedColor;
 
         private static volatile boolean cachedUseIcon;
-
-
 
         private static void rebuildStampCacheIfNeeded() {
 
@@ -10765,8 +10086,6 @@ private void go() throws Exception {
 
         }
 
-
-
         static void stampCell(ChatMessageCell chatMessageCell, MessageObject messageObject) {
 
             markCellDeleted(chatMessageCell, true);
@@ -10829,8 +10148,6 @@ private void go() throws Exception {
 
         }
 
-
-
         static void clearCellMark(ChatMessageCell chatMessageCell) {
 
             if (isCellMarkedDeleted(chatMessageCell)) {
@@ -10853,9 +10170,7 @@ private void go() throws Exception {
 
         }
 
-
-
-        /* JADX INFO: Access modifiers changed from: private */
+        
 
         public static String extractText(MessageObject messageObject) {
 
@@ -10965,8 +10280,6 @@ private void go() throws Exception {
 
         }
 
-
-
         private static void applyAlpha(ChatMessageCell chatMessageCell) {
 
             float delOp = delOp();
@@ -10989,9 +10302,7 @@ private void go() throws Exception {
 
         }
 
-
-
-        /* JADX INFO: Access modifiers changed from: private */
+        
 
         public static void maybeStamp(ChatMessageCell chatMessageCell, MessageObject messageObject) {
 
@@ -11039,8 +10350,6 @@ private void go() throws Exception {
 
         }
 
-
-
         private void hkSendReq() {
 
             Method method;
@@ -11081,7 +10390,7 @@ private void go() throws Exception {
 
                 }
 
-                this.sendReqHook = XposedBridge.hookMethod(method, new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.2
+                this.sendReqHook = XposedBridge.hookMethod(method, new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -11149,8 +10458,6 @@ private void go() throws Exception {
 
         }
 
-
-
         private void hkUpdates() {
 
             Method method;
@@ -11191,7 +10498,7 @@ private void go() throws Exception {
 
                 }
 
-                this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.3
+                this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -11202,8 +10509,6 @@ private void go() throws Exception {
                         }
 
                     }
-
-
 
                     public void afterHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -11450,8 +10755,6 @@ private void go() throws Exception {
 
         }
 
-
-
         // ============ re:extera DeletionBypass & capture engine ============
 
         public static final class DeletionBypass {
@@ -11462,15 +10765,11 @@ private void go() throws Exception {
 
             private static final ConcurrentHashMap<String, Long> ui = new ConcurrentHashMap<>();
 
-
-
             private static String key(long did, int mid) {
 
                 return did + ":" + mid;
 
             }
-
-
 
             public static void allow(long dialogId, Collection<Integer> messageIds) {
 
@@ -11494,23 +10793,17 @@ private void go() throws Exception {
 
             }
 
-
-
             public static boolean consumeStorage(long dialogId, int messageId) {
 
                 return consume(storage, key(dialogId, messageId));
 
             }
 
-
-
             public static boolean consumeUi(long dialogId, int messageId) {
 
                 return consume(ui, key(dialogId, messageId));
 
             }
-
-
 
             private static boolean consume(ConcurrentHashMap<String, Long> map, String k) {
 
@@ -11519,8 +10812,6 @@ private void go() throws Exception {
                 return exp != null && exp.longValue() >= SystemClock.elapsedRealtime();
 
             }
-
-
 
             private static void evictExpired() {
 
@@ -11534,11 +10825,7 @@ private void go() throws Exception {
 
         }
 
-
-
         private static final ThreadLocal<Boolean> rangeDeleteActive = ThreadLocal.withInitial(() -> Boolean.FALSE);
-
-
 
         public static Map<Long, List<Integer>> resolveDialogsForMids(MessagesStorage storage, int currentAccount, Collection<Integer> messageIds) {
             if (messageIds == null || messageIds.isEmpty()) {
@@ -11614,8 +10901,6 @@ private void go() throws Exception {
             }
             return messagesByDialog;
         }
-
-
 
         private Map<Integer, String> collectDeletedTexts(long did, List<Integer> mids) {
 
@@ -11697,8 +10982,6 @@ private void go() throws Exception {
 
         }
 
-
-
         private void saveDeletedBatch(long did, List<Integer> mids) {
 
             if (did == 0 || did == 489000L || mids == null || mids.isEmpty() || Main.db == null) {
@@ -11758,8 +11041,6 @@ private void go() throws Exception {
             Main.refreshCellsForMids(new ArrayList<>(filteredMids));
 
         }
-
-
 
         private void hkMarkDel() {
             try {
@@ -11945,8 +11226,6 @@ private void go() throws Exception {
             }
         }
 
-
-
         private void hkProcDel() {
             try {
                 this.hooks.add(XposedBridge.hookMethod(ChatActivity.class.getDeclaredMethod("processDeletedMessages", ArrayList.class, Long.TYPE, Boolean.TYPE, Boolean.TYPE), new XC_MethodHook() {
@@ -12010,8 +11289,6 @@ private void go() throws Exception {
             }
         }
 
-
-
         private void hkSetMsg() {
             try {
                 for (Method method : ChatMessageCell.class.getDeclaredMethods()) {
@@ -12037,8 +11314,6 @@ private void go() throws Exception {
                 Main.err("hkSM", e);
             }
         }
-
-
 
         private static boolean isCellDeleted(ChatMessageCell cell, MessageObject mo) {
             if (mo == null) {
@@ -12066,11 +11341,7 @@ private void go() throws Exception {
             return mo.deleted || Main.isDeletedMsg(mo);
         }
 
-
-
         private int outboundsSaveCount = -1;
-
-
 
         private void hkDrawOutbounds() {
 
@@ -12105,8 +11376,6 @@ private void go() throws Exception {
                                 } catch (Throwable t) {}
 
                             }
-
-
 
                             @Override
 
@@ -12144,8 +11413,6 @@ private void go() throws Exception {
 
         }
 
-
-
         // ============ re:extera MeasureTime: метка удалённого сообщения ============
 
         // Вставляется ПОСЛЕ нативного measureTime — в самый момент, когда Telegram
@@ -12159,8 +11426,6 @@ private void go() throws Exception {
         private static final Map<ChatMessageCell, AnimatedEmojiDrawable> deletedEmojiDrawables = new WeakHashMap<>();
 
         private static final Map<ChatMessageCell, View.OnAttachStateChangeListener> deletedEmojiListeners = new WeakHashMap<>();
-
-
 
         private static long deletedMarkEmojiId() {
 
@@ -12176,8 +11441,6 @@ private void go() throws Exception {
 
         }
 
-
-
         private static int deletedMarkColor() {
 
             try {
@@ -12191,8 +11454,6 @@ private void go() throws Exception {
             }
 
         }
-
-
 
         static String deletedMarkText() {
 
@@ -12209,8 +11470,6 @@ private void go() throws Exception {
             }
 
         }
-
-
 
         private static synchronized void bindDeletedEmojiDrawable(ChatMessageCell cell, AnimatedEmojiDrawable drawable) {
 
@@ -12252,8 +11511,6 @@ private void go() throws Exception {
 
                     }
 
-
-
                     @Override
 
                     public void onViewDetachedFromWindow(View view) {
@@ -12286,8 +11543,6 @@ private void go() throws Exception {
 
         }
 
-
-
         private static synchronized void unbindDeletedEmojiDrawable(ChatMessageCell cell) {
 
             AnimatedEmojiDrawable drawable = deletedEmojiDrawables.remove(cell);
@@ -12307,8 +11562,6 @@ private void go() throws Exception {
             }
 
         }
-
-
 
         private static SpannableStringBuilder buildDeletedPrefix(ChatMessageCell cell, TextPaint paint) {
             SpannableStringBuilder builder;
@@ -12565,7 +11818,7 @@ private void go() throws Exception {
 
             try {
 
-                this.hooks.add(XposedBridge.hookMethod(MessageObject.class.getDeclaredMethod("canDeleteMessage", Boolean.TYPE, TLRPC.Chat.class), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.11
+                this.hooks.add(XposedBridge.hookMethod(MessageObject.class.getDeclaredMethod("canDeleteMessage", Boolean.TYPE, TLRPC.Chat.class), new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -12587,13 +11840,11 @@ private void go() throws Exception {
 
         }
 
-
-
         private void hkCanFwd() {
 
             try {
 
-                this.hooks.add(XposedBridge.hookMethod(MessageObject.class.getDeclaredMethod("canForwardMessage", new Class[0]), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.12
+                this.hooks.add(XposedBridge.hookMethod(MessageObject.class.getDeclaredMethod("canForwardMessage", new Class[0]), new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -12613,15 +11864,13 @@ private void go() throws Exception {
 
         }
 
-
-
         private void hkNoFwd() {
 
             Method[] declaredMethods;
 
             Method[] declaredMethods2;
 
-            XC_MethodHook xC_MethodHook = new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.13
+            XC_MethodHook xC_MethodHook = new XC_MethodHook() {
 
                 public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -12748,7 +11997,7 @@ private void go() throws Exception {
                                                     ViewGroup popupLayout = findActionBarPopupWindowLayout(contentView);
                                                     if (popupLayout != null) {
                                                         org.telegram.ui.ActionBar.ActionBarMenuSubItem restoreItem = new org.telegram.ui.ActionBar.ActionBarMenuSubItem(chatAct.getParentActivity(), true, true);
-                                                        restoreItem.setTextAndIcon("Восстановить из облака", R.drawable.msg_retry);
+                                                        restoreItem.setTextAndIcon(tr("Восстановить из облака","Restore from cloud"), R.drawable.msg_retry);
                                                         restoreItem.setOnClickListener(new View.OnClickListener() {
                                                             @Override
                                                             public void onClick(View v) {
@@ -12781,7 +12030,7 @@ private void go() throws Exception {
 
                     if ("sendMessage".equals(method2.getName()) && method2.getParameterTypes().length == 1 && method2.getParameterTypes()[0].getSimpleName().contains("SendMessageParams")) {
 
-                        this.hooks.add(XposedBridge.hookMethod(method2, new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.14
+                        this.hooks.add(XposedBridge.hookMethod(method2, new XC_MethodHook() {
 
                             public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -12812,8 +12061,6 @@ private void go() throws Exception {
             }
 
         }
-
-
 
         private static ViewGroup findActionBarPopupWindowLayout(ViewGroup root) {
             if (root == null) return null;
@@ -12918,7 +12165,7 @@ private void go() throws Exception {
                     }
                 }
                 Main.forceUpdateViews(account, did, Collections.singletonList(Integer.valueOf(mid)));
-                BulletinFactory.of(ca).createSuccessBulletin("Сообщение восстановлено из облака").show();
+                BulletinFactory.of(ca).createSuccessBulletin(tr("Сообщение восстановлено из облака","Message restored from cloud")).show();
             } catch (Throwable t) {
                 Main.err("handleCloudRestoreResponse", new Exception(t));
             }
@@ -12946,7 +12193,7 @@ private void go() throws Exception {
 
                 declaredMethod2.setAccessible(true);
 
-                this.hooks.add(XposedBridge.hookMethod(declaredMethod2, new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.15
+                this.hooks.add(XposedBridge.hookMethod(declaredMethod2, new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -12966,7 +12213,7 @@ private void go() throws Exception {
 
                 declaredMethod3.setAccessible(true);
 
-                this.hooks.add(XposedBridge.hookMethod(declaredMethod3, new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.16
+                this.hooks.add(XposedBridge.hookMethod(declaredMethod3, new XC_MethodHook() {
 
                     public void afterHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -12998,7 +12245,7 @@ private void go() throws Exception {
 
                                 }
 
-                                HookManager.this.hooks.add(XposedBridge.hookMethod(obj2.getClass().getMethod("limitReached", new Class[0]), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.16.1
+                                HookManager.this.hooks.add(XposedBridge.hookMethod(obj2.getClass().getMethod("limitReached", new Class[0]), new XC_MethodHook() {
 
                                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam2) {
 
@@ -13034,7 +12281,7 @@ private void go() throws Exception {
 
                         method.setAccessible(true);
 
-                        this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.17
+                        this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() {
 
                             public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -13110,15 +12357,11 @@ private void go() throws Exception {
 
         }
 
-
-
-        /* loaded from: C:\Users\max\Desktop\Temp\extracted_classes.dex */
+        
 
         private class NflSelector extends XC_MethodHook {
 
             private final Map<Integer, MessageObject> msgs;
-
-
 
             private NflSelector() {
 
@@ -13126,15 +12369,11 @@ private void go() throws Exception {
 
             }
 
-
-
             void clear() {
 
                 this.msgs.clear();
 
             }
-
-
 
             public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -13173,8 +12412,6 @@ private void go() throws Exception {
                 }
 
             }
-
-
 
             public void afterHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -13294,13 +12531,11 @@ private void go() throws Exception {
 
         }
 
-
-
         private void hkMenu() {
 
             try {
 
-                this.hooks.add(XposedBridge.hookMethod(ChatActivity.class.getDeclaredMethod("fillMessageMenu", MessageObject.class, ArrayList.class, ArrayList.class, ArrayList.class), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.18
+                this.hooks.add(XposedBridge.hookMethod(ChatActivity.class.getDeclaredMethod("fillMessageMenu", MessageObject.class, ArrayList.class, ArrayList.class, ArrayList.class), new XC_MethodHook() {
 
                     public void afterHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -13347,8 +12582,6 @@ private void go() throws Exception {
             }
 
         }
-
-
 
         private void hkOpt() {
 
@@ -13398,9 +12631,7 @@ private void go() throws Exception {
 
         }
 
-
-
-        /* JADX INFO: Access modifiers changed from: private */
+        
 
         public static void settingsToast(final String str) {
 
@@ -13414,7 +12645,7 @@ private void go() throws Exception {
 
                 settingsErrored = true;
 
-                Main.ui(new Runnable() { // from class: com.maxplugins.sample.Main.HookManager.50
+                Main.ui(new Runnable() {
 
                     @Override // java.lang.Runnable
 
@@ -13432,8 +12663,6 @@ private void go() throws Exception {
 
         }
 
-
-
         static void lambda$settingsToast$5(String str) {
 
             try {
@@ -13445,8 +12674,6 @@ private void go() throws Exception {
             }
 
         }
-
-
 
         private void hkSettingsEntry() {
 
@@ -13498,7 +12725,7 @@ private void go() throws Exception {
 
                 declaredMethod.setAccessible(true);
 
-                this.hooks.add(XposedBridge.hookMethod(declaredMethod, new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.20
+                this.hooks.add(XposedBridge.hookMethod(declaredMethod, new XC_MethodHook() {
 
                     public void afterHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -13552,7 +12779,7 @@ private void go() throws Exception {
 
                 method.setAccessible(true);
 
-                this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.21
+                this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -13586,9 +12813,7 @@ private void go() throws Exception {
 
         }
 
-
-
-        /* JADX INFO: Access modifiers changed from: private */
+        
 
         public static void injectSettingsEntry(ArrayList<Object> arrayList, Field field) {
 
@@ -13674,8 +12899,6 @@ private void go() throws Exception {
 
         }
 
-
-
         private static Object makeSettingsCell() {
 
             int i;
@@ -13722,9 +12945,7 @@ private void go() throws Exception {
 
         }
 
-
-
-        /* JADX INFO: Access modifiers changed from: private */
+        
 
         public static void openPluginSettings(BaseFragment baseFragmentParam) {
 
@@ -13788,7 +13009,7 @@ private void go() throws Exception {
 
                 }
 
-                Main.ui(new Runnable() { // from class: com.maxplugins.sample.Main.HookManager.45
+                Main.ui(new Runnable() {
 
                     @Override // java.lang.Runnable
 
@@ -13804,8 +13025,6 @@ private void go() throws Exception {
 
         }
 
-
-
         static void lambda$openPluginSettings$6(BaseFragment baseFragment, BaseFragment baseFragment2) {
 
             try {
@@ -13820,9 +13039,7 @@ private void go() throws Exception {
 
         }
 
-
-
-        /* JADX INFO: Access modifiers changed from: private */
+        
 
         public void showEditHistory(long j, int i) {
 
@@ -13836,7 +13053,7 @@ private void go() throws Exception {
 
             final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd.MM.yy HH:mm:ss", Locale.getDefault());
 
-            Main.ui(new Runnable() { // from class: com.maxplugins.sample.Main.HookManager.51
+            Main.ui(new Runnable() {
 
                 @Override // java.lang.Runnable
 
@@ -13849,8 +13066,6 @@ private void go() throws Exception {
             });
 
         }
-
-
 
         static void lambda$showEditHistory$7(List list, SimpleDateFormat simpleDateFormat) {
 
@@ -14116,8 +13331,6 @@ private void go() throws Exception {
 
         }
 
-
-
         private void hkOutgoingParams() {
 
             Method[] declaredMethods;
@@ -14132,37 +13345,33 @@ private void go() throws Exception {
 
                         if (parameterTypes.length == 1 && parameterTypes[0].getSimpleName().contains("SendMessageParams")) {
 
-                            this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.22
+                            this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() {
 
-                                /* JADX WARN: Can't wrap try/catch for region: R(31:(1:24)(1:139)|25|(6:104|105|106|107|108|(37:110|111|112|113|(1:115)(1:130)|116|(1:118)(1:129)|119|121|122|(1:124)(1:126)|29|(1:31)|(1:103)(1:37)|38|(21:45|(1:47)(1:101)|48|(1:50)(1:100)|51|(1:53)(1:99)|54|55|56|57|58|59|60|61|62|63|(4:85|86|(1:88)|89)|65|(3:67|(6:70|71|72|(2:74|75)(1:77)|76|68)|81)|82|84)|102|(0)(0)|48|(0)(0)|51|(0)(0)|54|55|56|57|58|59|60|61|62|63|(0)|65|(0)|82|84))(1:27)|28|29|(0)|(1:33)|103|38|(23:40|42|45|(0)(0)|48|(0)(0)|51|(0)(0)|54|55|56|57|58|59|60|61|62|63|(0)|65|(0)|82|84)|102|(0)(0)|48|(0)(0)|51|(0)(0)|54|55|56|57|58|59|60|61|62|63|(0)|65|(0)|82|84) */
+                                
 
-                                /* JADX WARN: Code restructure failed: missing block: B:109:0x01d2, code lost:
+                                
 
-                                    r19 = r13;
+                                
 
-                                 */
+                                
 
-                                /* JADX WARN: Removed duplicated region for block: B:120:0x0226 A[Catch: Exception -> 0x0262, TryCatch #7 {Exception -> 0x0262, blocks: (B:3:0x0012, B:5:0x0019, B:8:0x0021, B:10:0x0031, B:15:0x003a, B:25:0x0072, B:29:0x0082, B:67:0x0109, B:71:0x0113, B:73:0x0117, B:75:0x011d, B:77:0x0124, B:79:0x0145, B:81:0x014d, B:89:0x0160, B:91:0x016a, B:93:0x0173, B:97:0x018b, B:118:0x021a, B:120:0x0226, B:121:0x022c, B:123:0x0232, B:129:0x024e, B:130:0x0252, B:17:0x004c, B:19:0x0056), top: B:151:0x0012 }] */
+                                
 
-                                /* JADX WARN: Removed duplicated region for block: B:143:0x01d8 A[EXC_TOP_SPLITTER, SYNTHETIC] */
+                                
 
-                                /* JADX WARN: Removed duplicated region for block: B:69:0x010f  */
+                                
 
-                                /* JADX WARN: Removed duplicated region for block: B:71:0x0113 A[Catch: Exception -> 0x0262, TryCatch #7 {Exception -> 0x0262, blocks: (B:3:0x0012, B:5:0x0019, B:8:0x0021, B:10:0x0031, B:15:0x003a, B:25:0x0072, B:29:0x0082, B:67:0x0109, B:71:0x0113, B:73:0x0117, B:75:0x011d, B:77:0x0124, B:79:0x0145, B:81:0x014d, B:89:0x0160, B:91:0x016a, B:93:0x0173, B:97:0x018b, B:118:0x021a, B:120:0x0226, B:121:0x022c, B:123:0x0232, B:129:0x024e, B:130:0x0252, B:17:0x004c, B:19:0x0056), top: B:151:0x0012 }] */
+                                
 
-                                /* JADX WARN: Removed duplicated region for block: B:79:0x0145 A[Catch: Exception -> 0x0262, TryCatch #7 {Exception -> 0x0262, blocks: (B:3:0x0012, B:5:0x0019, B:8:0x0021, B:10:0x0031, B:15:0x003a, B:25:0x0072, B:29:0x0082, B:67:0x0109, B:71:0x0113, B:73:0x0117, B:75:0x011d, B:77:0x0124, B:79:0x0145, B:81:0x014d, B:89:0x0160, B:91:0x016a, B:93:0x0173, B:97:0x018b, B:118:0x021a, B:120:0x0226, B:121:0x022c, B:123:0x0232, B:129:0x024e, B:130:0x0252, B:17:0x004c, B:19:0x0056), top: B:151:0x0012 }] */
+                                
 
-                                /* JADX WARN: Removed duplicated region for block: B:87:0x015b  */
+                                
 
-                                /* JADX WARN: Removed duplicated region for block: B:88:0x015e  */
+                                
 
-                                /* JADX WARN: Removed duplicated region for block: B:91:0x016a A[Catch: Exception -> 0x0262, TryCatch #7 {Exception -> 0x0262, blocks: (B:3:0x0012, B:5:0x0019, B:8:0x0021, B:10:0x0031, B:15:0x003a, B:25:0x0072, B:29:0x0082, B:67:0x0109, B:71:0x0113, B:73:0x0117, B:75:0x011d, B:77:0x0124, B:79:0x0145, B:81:0x014d, B:89:0x0160, B:91:0x016a, B:93:0x0173, B:97:0x018b, B:118:0x021a, B:120:0x0226, B:121:0x022c, B:123:0x0232, B:129:0x024e, B:130:0x0252, B:17:0x004c, B:19:0x0056), top: B:151:0x0012 }] */
+                                
 
-                                /* JADX WARN: Removed duplicated region for block: B:92:0x0171  */
-
-                                /* JADX WARN: Removed duplicated region for block: B:95:0x0180  */
-
-                                /* JADX WARN: Removed duplicated region for block: B:96:0x0187  */
+                                
 
                                 public void beforeHookedMethod(de.robv.android.xposed.XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -14342,8 +13551,6 @@ private void go() throws Exception {
 
         }
 
-
-
         private boolean isOutMessage(long j, int i) {
 
             MessageObject findMessageInChat = Main.findMessageInChat(j, i);
@@ -14366,9 +13573,7 @@ private void go() throws Exception {
 
         }
 
-
-
-        /* JADX INFO: Access modifiers changed from: private */
+        
 
         public long getCurrentDialogId() {
 
@@ -14396,9 +13601,7 @@ private void go() throws Exception {
 
         }
 
-
-
-        /* JADX INFO: Access modifiers changed from: private */
+        
 
         public long getReqPeerId(Object obj) {
 
@@ -14450,9 +13653,7 @@ private void go() throws Exception {
 
         }
 
-
-
-        /* JADX INFO: Access modifiers changed from: private */
+        
 
         public int getReqMsgId(Object obj) {
 
@@ -14475,8 +13676,6 @@ private void go() throws Exception {
             }
 
         }
-
-
 
         private Map<Integer, String> collectDeletedData(long j, ArrayList<Integer> arrayList) {
 
@@ -14559,8 +13758,6 @@ private void go() throws Exception {
             return hashMap;
 
         }
-
-
 
         private void hkFlag() {
 
@@ -14684,15 +13881,13 @@ private void go() throws Exception {
 
         }
 
-
-
         private void hkPrem() {
 
             Method[] declaredMethods;
 
             try {
 
-                this.hooks.add(XposedBridge.hookMethod(UserConfig.class.getDeclaredMethod("isPremium", new Class[0]), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.24
+                this.hooks.add(XposedBridge.hookMethod(UserConfig.class.getDeclaredMethod("isPremium", new Class[0]), new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -14730,7 +13925,7 @@ private void go() throws Exception {
 
             try {
 
-                this.hooks.add(XposedBridge.hookMethod(UserConfig.class.getDeclaredMethod("hasPremium", new Class[0]), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.25
+                this.hooks.add(XposedBridge.hookMethod(UserConfig.class.getDeclaredMethod("hasPremium", new Class[0]), new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -14768,7 +13963,7 @@ private void go() throws Exception {
 
             try {
 
-                this.hooks.add(XposedBridge.hookMethod(UserConfig.class.getDeclaredMethod("getCurrentUser", new Class[0]), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.26
+                this.hooks.add(XposedBridge.hookMethod(UserConfig.class.getDeclaredMethod("getCurrentUser", new Class[0]), new XC_MethodHook() {
 
                     public void afterHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -14804,7 +13999,7 @@ private void go() throws Exception {
 
             try {
 
-                this.hooks.add(XposedBridge.hookMethod(UserConfig.class.getDeclaredMethod("setCurrentUser", Class.forName("org.telegram.tgnet.TLRPC$User")), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.27
+                this.hooks.add(XposedBridge.hookMethod(UserConfig.class.getDeclaredMethod("setCurrentUser", Class.forName("org.telegram.tgnet.TLRPC$User")), new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -14844,7 +14039,7 @@ private void go() throws Exception {
 
                     if ("putUser".equals(method.getName()) && method.getParameterTypes().length == 2) {
 
-                        this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.28
+                        this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() {
 
                             public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -14886,13 +14081,11 @@ private void go() throws Exception {
 
         }
 
-
-
         private void hkOnce() {
 
             try {
 
-                this.hooks.add(XposedBridge.hookMethod(ChatActivity.class.getDeclaredMethod("sendSecretMediaDelete", MessageObject.class), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.29
+                this.hooks.add(XposedBridge.hookMethod(ChatActivity.class.getDeclaredMethod("sendSecretMediaDelete", MessageObject.class), new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -14912,7 +14105,7 @@ private void go() throws Exception {
 
             try {
 
-                this.hooks.add(XposedBridge.hookMethod(ChatActivity.class.getDeclaredMethod("sendSecretMessageRead", MessageObject.class, Boolean.TYPE), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.30
+                this.hooks.add(XposedBridge.hookMethod(ChatActivity.class.getDeclaredMethod("sendSecretMessageRead", MessageObject.class, Boolean.TYPE), new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -14932,7 +14125,7 @@ private void go() throws Exception {
 
             try {
 
-                this.hooks.add(XposedBridge.hookMethod(SecretVoicePlayer.class.getDeclaredMethod("dismiss", new Class[0]), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.31
+                this.hooks.add(XposedBridge.hookMethod(SecretVoicePlayer.class.getDeclaredMethod("dismiss", new Class[0]), new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -14958,13 +14151,11 @@ private void go() throws Exception {
 
         }
 
-
-
         private void hkCheckDel() {
 
             try {
 
-                this.hooks.add(XposedBridge.hookMethod(MessagesController.class.getDeclaredMethod("checkDeletingTask", Boolean.TYPE), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.32
+                this.hooks.add(XposedBridge.hookMethod(MessagesController.class.getDeclaredMethod("checkDeletingTask", Boolean.TYPE), new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -14984,13 +14175,11 @@ private void go() throws Exception {
 
         }
 
-
-
         private void hkNotif() {
 
             try {
 
-                this.hooks.add(XposedBridge.hookMethod(NotificationsController.class.getDeclaredMethod("removeDeletedMessagesFromNotifications", LongSparseArray.class, Boolean.TYPE), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.33
+                this.hooks.add(XposedBridge.hookMethod(NotificationsController.class.getDeclaredMethod("removeDeletedMessagesFromNotifications", LongSparseArray.class, Boolean.TYPE), new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -15012,13 +14201,11 @@ private void go() throws Exception {
 
         }
 
-
-
         private void hkNewMsg() {
 
             try {
 
-                this.hooks.add(XposedBridge.hookMethod(ChatActivity.class.getDeclaredMethod("processNewMessages", ArrayList.class, Boolean.TYPE), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.34
+                this.hooks.add(XposedBridge.hookMethod(ChatActivity.class.getDeclaredMethod("processNewMessages", ArrayList.class, Boolean.TYPE), new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -15134,13 +14321,11 @@ private void go() throws Exception {
 
         }
 
-
-
         private void hkStorySave() {
 
             try {
 
-                this.hooks.add(XposedBridge.hookMethod(Class.forName("org.telegram.ui.Stories.PeerStoriesView$StoryItemHolder").getDeclaredMethod("allowScreenshots", new Class[0]), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.35
+                this.hooks.add(XposedBridge.hookMethod(Class.forName("org.telegram.ui.Stories.PeerStoriesView$StoryItemHolder").getDeclaredMethod("allowScreenshots", new Class[0]), new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -15160,7 +14345,7 @@ private void go() throws Exception {
 
             try {
 
-                this.hooks.add(XposedBridge.hookMethod(Class.forName("org.telegram.ui.Stories.StoryViewer").getDeclaredMethod("allowScreenshots", Boolean.TYPE), new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.36
+                this.hooks.add(XposedBridge.hookMethod(Class.forName("org.telegram.ui.Stories.StoryViewer").getDeclaredMethod("allowScreenshots", Boolean.TYPE), new XC_MethodHook() {
 
                     public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -15180,13 +14365,11 @@ private void go() throws Exception {
 
         }
 
-
-
         // re:extera FormatUserStatus: при включённом "Сохранять последний онлайн"
 
-        // скрытые статусы ("был(а) недавно" / "на прошлой неделе" / "давно")
+        // скрытые статусы (tr("был(а) недавно","was recently") / tr("на прошлой неделе","last week") / tr("давно","long ago"))
 
-        // заменяются на "~ был(а) в HH:MM" — время, когда плагин последний раз
+        // заменяются на tr("~ был(а) в HH:MM","~ last seen at HH:MM") — время, когда плагин последний раз
 
         // видел пользователя в сети. Статус подменяется на точный Offline на
 
@@ -15276,7 +14459,7 @@ private void go() throws Exception {
 
                         if (parameterTypes.length >= 7 && parameterTypes[0] == ArrayList.class && parameterTypes[1] == Long.TYPE) {
 
-                            this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.39
+                            this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() {
 
                                 public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -15328,8 +14511,6 @@ private void go() throws Exception {
 
         }
 
-
-
         private void hkReForward() {
 
             Method[] declaredMethods;
@@ -15344,7 +14525,7 @@ private void go() throws Exception {
 
                         if (parameterTypes.length >= 7 && parameterTypes[0] == ArrayList.class && parameterTypes[1] == Long.TYPE) {
 
-                            this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() { // from class: com.maxplugins.sample.Main.HookManager.40
+                            this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() {
 
                                 public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
 
@@ -15420,8 +14601,6 @@ private void go() throws Exception {
 
         }
 
-
-
         public void onUnload() {
 
             if (this.sendReqHook != null) {
@@ -15450,23 +14629,17 @@ private void go() throws Exception {
 
     }
 
-
-
     public static boolean pyIsRemoved(long j, int i) {
 
         return db != null && db.isRem(j, i);
 
     }
 
-
-
     public static boolean pyHasEdits(long j, int i) {
 
         return db != null && db.hasEdits(j, i);
 
     }
-
-
 
     public static void pyWipeAll() {
 
@@ -15478,15 +14651,11 @@ private void go() throws Exception {
 
     }
 
-
-
     public static boolean pyGetBool(String str, boolean z) {
 
         return cfg != null ? cfg.b(str, z) : z;
 
     }
-
-
 
     public static void pySetBool(String str, boolean z) {
 
@@ -15518,15 +14687,11 @@ private void go() throws Exception {
 
     }
 
-
-
     public static int pyGetInt(String str, int i) {
 
         return cfg != null ? cfg.i(str, i) : i;
 
     }
-
-
 
     public static void pySetInt(String str, int i) {
 
@@ -15538,15 +14703,11 @@ private void go() throws Exception {
 
     }
 
-
-
     public static void pyToggleGhost() {
 
         toggleGhost();
 
     }
-
-
 
     public static boolean pyIsGhost() {
 
@@ -15554,15 +14715,11 @@ private void go() throws Exception {
 
     }
 
-
-
     public static ArrayList<Long> pyGetReadWhitelist() {
 
         return db != null ? db.getReadWhitelist() : new ArrayList<>();
 
     }
-
-
 
     public static boolean pyAddReadWhitelist(long j) {
 
@@ -15570,23 +14727,17 @@ private void go() throws Exception {
 
     }
 
-
-
     public static boolean pyRemoveReadWhitelist(long j) {
 
         return db != null && db.removeReadWhitelist(j);
 
     }
 
-
-
     public static ArrayList<String> pyGetRegexPatterns() {
 
         return db != null ? db.getRegex() : new ArrayList<>();
 
     }
-
-
 
     public static boolean pyAddRegex(String str) {
 
@@ -15602,8 +14753,6 @@ private void go() throws Exception {
 
     }
 
-
-
     public static boolean pyRemoveRegex(String str) {
 
         boolean z = db != null && db.removeRegex(str);
@@ -15618,8 +14767,6 @@ private void go() throws Exception {
 
     }
 
-
-
     public static void pyRebuildRegex() {
 
         if (hm != null) {
@@ -15630,15 +14777,11 @@ private void go() throws Exception {
 
     }
 
-
-
     public static ArrayList<Long> pyGetPresenceTracked() {
 
         return new ArrayList<>(presenceTracked);
 
     }
-
-
 
     public static void pyAddPresenceTracked(long j) {
 
@@ -15652,8 +14795,6 @@ private void go() throws Exception {
 
     }
 
-
-
     public static void pyRemovePresenceTracked(long j) {
 
         presenceTracked.remove(Long.valueOf(j));
@@ -15661,8 +14802,6 @@ private void go() throws Exception {
         presenceDirty = true;
 
     }
-
-
 
     public static ArrayList<String> pyGetPresenceRecords() {
 
@@ -15693,8 +14832,6 @@ private void go() throws Exception {
         return arrayList;
 
     }
-
-
 
     public static void pyWipePresence() {
 

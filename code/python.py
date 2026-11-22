@@ -40,9 +40,6 @@ from org.telegram.ui.Components import BulletinFactory, ColoredImageSpan
 
 from android_utils import log, run_on_ui_thread
 
-
-def log(*args, **kwargs):
-    pass
 from base_plugin import (BasePlugin, HookResult, HookStrategy, MenuItemData,
                          MenuItemType, MethodHook, MethodReplacement, XposedHook)
 from client_utils import (get_messages_controller, get_messages_storage,
@@ -64,7 +61,6 @@ __description__ = "[EN]: Updated version of the «re:extera» plugin («ghost» 
 __author__ = "@itNotMax - @MaxExteraPlugins"
 __version__ = "1.5.26"
 __icon__ = "MaxExteraPluginsStickers/30"
-__min_version__ = "12.10.6"
 __app_version__ = ">=12.8.1"
 __sdk_version__ = ">=1.4.3.3"
 
@@ -167,12 +163,6 @@ class L:
         "sel_always_off": "Всегда выкл.", "sel_with_ghost": "Только с призраком", "sel_always_on": "Всегда вкл.",
         "sel_ask_on_open": "Спрашивать при открытии", "ghost_status_offline": "оффлайн",
         "max_vigilance": "Максимальная бдительность", "keep_alive": "Оставлять клиент активным", "keep_alive_sub": "Работа в фоне даже после закрытия (тратит батарею)",
-        "spy_mode": "Режим шпиона",
-        "save_deleted": "Сохранять удалённые", "save_deleted_sub": "Удалённые сообщения останутся в чате",
-        "save_edits": "Сохранять историю правок", "save_edits_sub": "Все версии отредактированных сообщений",
-        "save_bots": "Сохранять в чатах с ботами",
-        "save_online": "Сохранять последний онлайн", "save_online_sub": "Запоминать время онлайна всех пользователей",
-        "save_own_del": "Не сохранять свои удаления",
         "local_read_header": "Локальное чтение",
         "local_read_msgs": "В личных чатах",
         "local_read_private": "В личных (приватных)",
@@ -310,6 +300,8 @@ class L:
         "cr_kvuco": "AdBlock, Mirror, RFS",
         "cr_alexeicrystal": "Скрытие рекламы в ленте",
                 "cr_ai_title": "ИИ", "cr_ai": "Реализация :)))",
+        "downloading_retry": "Загрузка... попробуйте снова",
+        "dex_not_loaded": "DEX не загружен",
 
 
     }
@@ -485,6 +477,8 @@ class L:
         "cr_kvuco": "AdBlock, Mirror, RFS",
         "cr_alexeicrystal": "Hiding ads in the feed",
                 "cr_ai_title": "AI", "cr_ai": "Implementation :)))",
+        "downloading_retry": "Downloading... try again",
+        "dex_not_loaded": "DEX not loaded",
 
 
     }
@@ -1621,26 +1615,6 @@ def _get_vault_attach(did, mid):
     except Exception:
         pass
     return None
-
-
-def _get_vault_attach_by_hash(did, mid, media_hash):
-    if not media_hash:
-        return _get_vault_attach(did, mid)
-    try:
-        attach_dir = _get_attach_dir()
-        if not attach_dir:
-            return None
-        prefix = f"{did}_{mid}_{media_hash}"
-        for fname in os.listdir(attach_dir):
-            if fname.startswith(prefix):
-                full = os.path.join(attach_dir, fname)
-                if os.path.isfile(full) and os.path.getsize(full) > 0:
-                    return full
-    except Exception:
-        pass
-    return None
-
-
 def _get_vault_attachs(did, mid):
     try:
         attach_dir = _get_attach_dir()
@@ -4458,7 +4432,7 @@ class MaxReExteraPlugin(BasePlugin):
                     f = None
             if f is None or not f.exists():
                 fl.loadFile(doc, message, 1, 0)
-                BulletinHelper.show_info("Downloading... try again")
+                BulletinHelper.show_info(L.g("downloading_retry"))
                 return
             content = read_file(str(f.getAbsolutePath()))
             if content is None:
@@ -7674,7 +7648,7 @@ class MaxReExteraPlugin(BasePlugin):
             if self.dex and self.dex.loaded:
                 self.dex.call("pySyncAllChats")
             else:
-                BulletinHelper.show_info("DEX not loaded")
+                BulletinHelper.show_info(L.g("dex_not_loaded"))
         except Exception as e:
             log(f"[MAX] syncAllChats: {e}")
 
