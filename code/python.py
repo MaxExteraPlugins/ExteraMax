@@ -298,7 +298,7 @@ class L:
         "cr_summering": "Тестирование и развитие",
         "cr_testing": "Тестирование и развитие",
         "cr_kvuco": "AdBlock, Mirror, RFS",
-        "cr_alexeicrystal": "Скрытие рекламы в ленте",
+        "cr_alexeicrystal": "Скрытие рекламы в ленте, улучшения кода",
                 "cr_ai_title": "ИИ", "cr_ai": "Реализация :)))",
         "downloading_retry": "Загрузка... попробуйте снова",
         "dex_not_loaded": "DEX не загружен",
@@ -475,7 +475,7 @@ class L:
         "cr_summering": "Testing and development",
         "cr_testing": "Testing and development",
         "cr_kvuco": "AdBlock, Mirror, RFS",
-        "cr_alexeicrystal": "Hiding ads in the feed",
+        "cr_alexeicrystal": "Hiding ads in the feed, code improvements",
                 "cr_ai_title": "AI", "cr_ai": "Implementation :)))",
         "downloading_retry": "Downloading... try again",
         "dex_not_loaded": "DEX not loaded",
@@ -8736,7 +8736,7 @@ class MaxReExteraPlugin(BasePlugin):
         log("[MAX] create_settings: building settings UI")
         entries = []
         try:
-            entries.append(Custom(factory=_StickerFactory.instance.java))
+            entries.append(Custom(factory=_StickerFactory.instance.java, link_alias="sticker_row"))
         except Exception as e:
             log(f"[MAX] create_settings: sticker factory row failed: {e}")
         for text_key, icon, sub in (
@@ -8746,12 +8746,12 @@ class MaxReExteraPlugin(BasePlugin):
             ("hacker", "msg_fave", self._ph),
         ):
             try:
-                entries.append(Text(text=L.g(text_key), icon=icon, create_sub_fragment=sub))
+                entries.append(Text(text=L.g(text_key), icon=icon, create_sub_fragment=sub, link_alias="page_" + text_key))
             except Exception as e:
                 log(f"[MAX] create_settings: '{text_key}' tab failed: {e}")
         try:
             entries.append(Divider())
-            entries.append(Text(text=L.g("settings_misc"), icon="msg_settings", create_sub_fragment=self._pmisc))
+            entries.append(Text(text=L.g("settings_misc"), icon="msg_settings", create_sub_fragment=self._pmisc, link_alias="page_misc"))
         except Exception as e:
             log(f"[MAX] create_settings: misc tab failed: {e}")
         if not entries:
@@ -8761,7 +8761,7 @@ class MaxReExteraPlugin(BasePlugin):
     def _tab_master(self, tab, header, icon):
         return [
             Header(text=L.g(header)),
-            Switch(key=tab, text=L.g("enable_features"), default=True, subtext=L.g("enable_features_sub"), icon=icon, on_change=lambda v: self._on_tab_toggle(tab, v)),
+            Switch(key=tab, text=L.g("enable_features"), default=True, subtext=L.g("enable_features_sub"), icon=icon, on_change=lambda v: self._on_tab_toggle(tab, v), link_alias=tab),
         ]
 
     def _on_tab_toggle(self, tab, v):
@@ -8798,45 +8798,45 @@ class MaxReExteraPlugin(BasePlugin):
 
             return items
         items += [
-            Text(text=L.g("exclusions"), icon="msg_permissions", subtext=L.g("exclusions_row_sub"), on_click=lambda v: self._show_exclusions_manager()),
+            Text(text=L.g("exclusions"), icon="msg_permissions", subtext=L.g("exclusions_row_sub"), on_click=lambda v: self._show_exclusions_manager(), link_alias="ghost_exclusions"),
             Divider(),
             Switch(key="ghost_mode", text=L.g("ghost_toggle"), default=False,
                    subtext=L.g("ghost_toggle_sub"), icon="ghost_solar",
-                   on_change=self._on_ghost_change),
-            Switch(key="drawer_ghost_btn", text=L.g("drawer_btn"), default=True),
+                   on_change=self._on_ghost_change, link_alias="ghost_mode"),
+            Switch(key="drawer_ghost_btn", text=L.g("drawer_btn"), default=True, link_alias="ghost_drawer_btn"),
             Divider(),
             Header(text=L.g("ghost_settings")),
             Selector(key="ghost_no_online", text=L.g("no_online"),
-                     default=1, items=self._mode_items()),
+                     default=1, items=self._mode_items(), link_alias="ghost_no_online"),
             Selector(key="ghost_immediate_offline", text=L.g("instant_offline"),
-                     default=1, items=self._mode_items()),
+                     default=1, items=self._mode_items(), link_alias="ghost_instant_offline"),
             Selector(key="ghost_no_typing", text=L.g("no_typing"),
-                     default=1, items=self._mode_items()),
+                     default=1, items=self._mode_items(), link_alias="ghost_no_typing"),
             Selector(key="ghost_no_read", text=L.g("no_read"),
-                     default=1, items=self._mode_items()),
+                     default=1, items=self._mode_items(), link_alias="ghost_no_read"),
             Selector(key="ghost_no_read_stories", text=L.g("no_read_stories"),
-                     default=1, items=self._stories_mode_items()),
+                     default=1, items=self._stories_mode_items(), link_alias="ghost_no_read_stories"),
             Selector(key="silent_send", text=L.g("silent_send"),
-                     default=0, items=self._silent_mode_items()),
+                     default=0, items=self._silent_mode_items(), link_alias="ghost_silent_send"),
             Divider(),
             Switch(key="read_on_action", text=L.g("read_on_action"), default=True,
-                   subtext=L.g("read_on_action_sub")),
-            Switch(key="use_scheduled", text=L.g("use_scheduled"), default=False),
+                   subtext=L.g("read_on_action_sub"), link_alias="ghost_read_on_action"),
+            Switch(key="use_scheduled", text=L.g("use_scheduled"), default=False, link_alias="ghost_use_scheduled"),
             Divider(),
             Header(text=L.g("local_read_header")),
             Switch(key="local_read_msgs", text=L.g("local_read_msgs"),
-                   default=True, subtext=L.g("local_read_msgs_sub")),
+                   default=True, subtext=L.g("local_read_msgs_sub"), link_alias="local_read_msgs"),
             Switch(key="local_read_private", text=L.g("local_read_private"),
-                   default=True),
+                   default=True, link_alias="local_read_private"),
             Switch(key="local_read_groups", text=L.g("local_read_groups"),
-                   default=True),
+                   default=True, link_alias="local_read_groups"),
             Switch(key="local_read_channels", text=L.g("local_read_channels"),
-                   default=True),
+                   default=True, link_alias="local_read_channels"),
             Switch(key="local_read_stories", text=L.g("local_read_stories"),
-                   default=True, subtext=L.g("local_read_stories_sub")),
+                   default=True, subtext=L.g("local_read_stories_sub"), link_alias="local_read_stories"),
             Divider(),
             Header(text=L.g("read_whitelist")),
-            Text(text=L.g("read_wl_users"), icon="msg_contacts", subtext=L.g("read_whitelist_sub"), on_click=lambda v: self._show_read_whitelist()),
+            Text(text=L.g("read_wl_users"), icon="msg_contacts", subtext=L.g("read_whitelist_sub"), on_click=lambda v: self._show_read_whitelist(), link_alias="read_whitelist"),
         ]
         return items
 
@@ -8857,39 +8857,39 @@ class MaxReExteraPlugin(BasePlugin):
             return items
         items += [
             Header(text=L.g("max_vigilance")),
-            Switch(key="keep_app_alive", text=L.g("keep_alive"), default=False, subtext=L.g("keep_alive_sub")),
+            Switch(key="keep_app_alive", text=L.g("keep_alive"), default=False, subtext=L.g("keep_alive_sub"), link_alias="spy_keep_alive"),
             Divider(),
             Header(text=L.g("spy_mode")),
-            Switch(key="save_deleted", text=L.g("save_deleted"), default=True, subtext=L.g("save_deleted_sub")),
-            Switch(key="save_edits", text=L.g("save_edits"), default=True, subtext=L.g("save_edits_sub")),
-            Switch(key="keep_once", text=L.g("save_once_msgs"), default=False, subtext=L.g("save_once_msgs_sub")),
-            Switch(key="save_bot_chats", text=L.g("save_bots"), default=False),
-            Switch(key="track_own_deletions", text=L.g("save_own_del"), default=False),
-            Text(text=L.g("del_customize"), icon="msg_customize", on_click=lambda v: self._open_del_customize()),
-            Text(text=L.g("clear_all_deleted"), icon="msg_delete", subtext=L.g("clear_all_deleted_sub"), on_click=lambda v: plugin._on_clear_all_deleted_click()),
-            Text(text=L.g("sync_all_chats"), icon="msg_retry", subtext=L.g("sync_all_chats_sub"), on_click=lambda v: plugin._on_sync_all_chats_click()),
+            Switch(key="save_deleted", text=L.g("save_deleted"), default=True, subtext=L.g("save_deleted_sub"), link_alias="spy_save_deleted"),
+            Switch(key="save_edits", text=L.g("save_edits"), default=True, subtext=L.g("save_edits_sub"), link_alias="spy_save_edits"),
+            Switch(key="keep_once", text=L.g("save_once_msgs"), default=False, subtext=L.g("save_once_msgs_sub"), link_alias="spy_keep_once"),
+            Switch(key="save_bot_chats", text=L.g("save_bots"), default=False, link_alias="spy_save_bots"),
+            Switch(key="track_own_deletions", text=L.g("save_own_del"), default=False, link_alias="spy_own_deletions"),
+            Text(text=L.g("del_customize"), icon="msg_customize", on_click=lambda v: self._open_del_customize(), link_alias="spy_del_customize"),
+            Text(text=L.g("clear_all_deleted"), icon="msg_delete", subtext=L.g("clear_all_deleted_sub"), on_click=lambda v: plugin._on_clear_all_deleted_click(), link_alias="spy_clear_deleted"),
+            Text(text=L.g("sync_all_chats"), icon="msg_retry", subtext=L.g("sync_all_chats_sub"), on_click=lambda v: plugin._on_sync_all_chats_click(), link_alias="spy_sync_chats"),
             Divider(),
             Header(text=L.g("storage")),
-            Switch(key="save_attachments", text=L.g("save_attachments"), default=False),
-            Switch(key="save_attach_private", text=L.g("save_attach_private"), default=True),
-            Switch(key="save_attach_groups", text=L.g("save_attach_groups"), default=True),
-            Switch(key="save_attach_channels", text=L.g("save_attach_channels"), default=True),
-            Text(text=L.g("attach_folder"), icon="msg_folder", subtext=plugin._get_current_folder_display(), on_click=plugin._pick_attach_folder),
-            Text(text=L.g("attach_folder_reset"), icon="msg_reset", on_click=plugin._reset_attach_folder),
-            Selector(key="max_folder_size", text=L.g("max_folder"), default=2, items=["300 MB", "1 GB", "2 GB", "4 GB", "8 GB", "16 GB", "No limit"]),
-            Selector(key="auto_cleanup_age", text=L.g("auto_cleanup"), default=0, items=["Off", "3 days", "7 days", "14 days", "30 days", "90 days"]),
-            Text(text=L.g("browse_attachments"), icon="msg_gallery", subtext=L.g("browse_attachments_sub"), on_click=plugin._show_browse_attachments),
-            Text(text=L.g("import_from_file"), icon="msg_import", subtext=L.g("import_from_file_sub"), on_click=plugin._import_from_file_picker),
-            Text(text=L.g("wipe_storage"), icon="msg_clear", on_click=plugin._wipe_vault),
+            Switch(key="save_attachments", text=L.g("save_attachments"), default=False, link_alias="spy_save_attachments"),
+            Switch(key="save_attach_private", text=L.g("save_attach_private"), default=True, link_alias="spy_attach_private"),
+            Switch(key="save_attach_groups", text=L.g("save_attach_groups"), default=True, link_alias="spy_attach_groups"),
+            Switch(key="save_attach_channels", text=L.g("save_attach_channels"), default=True, link_alias="spy_attach_channels"),
+            Text(text=L.g("attach_folder"), icon="msg_folder", subtext=plugin._get_current_folder_display(), on_click=plugin._pick_attach_folder, link_alias="spy_attach_folder"),
+            Text(text=L.g("attach_folder_reset"), icon="msg_reset", on_click=plugin._reset_attach_folder, link_alias="spy_attach_folder_reset"),
+            Selector(key="max_folder_size", text=L.g("max_folder"), default=2, items=["300 MB", "1 GB", "2 GB", "4 GB", "8 GB", "16 GB", "No limit"], link_alias="spy_max_folder"),
+            Selector(key="auto_cleanup_age", text=L.g("auto_cleanup"), default=0, items=["Off", "3 days", "7 days", "14 days", "30 days", "90 days"], link_alias="spy_auto_cleanup"),
+            Text(text=L.g("browse_attachments"), icon="msg_gallery", subtext=L.g("browse_attachments_sub"), on_click=plugin._show_browse_attachments, link_alias="spy_browse_attachments"),
+            Text(text=L.g("import_from_file"), icon="msg_import", subtext=L.g("import_from_file_sub"), on_click=plugin._import_from_file_picker, link_alias="spy_import_file"),
+            Text(text=L.g("wipe_storage"), icon="msg_clear", on_click=plugin._wipe_vault, link_alias="spy_wipe_storage"),
             Divider(),
             Header(text=L.g("tracker")),
-            Switch(key="presence_track", text=L.g("save_online"), default=False, subtext=L.g("save_online_sub"), on_change=self._on_presence_track_change),
-            Switch(key="save_last_online", text=L.g("save_last_seen"), default=False, subtext=L.g("save_last_seen_sub")),
-            Switch(key="presence_only_hidden", text=L.g("only_hidden"), default=True),
-            Selector(key="presence_decay", text=L.g("decay"), default=1, items=["30s", "45s", "60s", "120s"]),
-            Text(text=L.g("tracked_users"), icon="msg_contacts", on_click=lambda v: plugin._show_presence_tracked()),
-            Text(text=L.g("journal"), icon="msg_log", on_click=lambda v: plugin._show_presence_log()),
-            Text(text=L.g("wipe_tracker"), icon="msg_clear", on_click=lambda v: self._wipe_presence()),
+            Switch(key="presence_track", text=L.g("save_online"), default=False, subtext=L.g("save_online_sub"), on_change=self._on_presence_track_change, link_alias="spy_presence_track"),
+            Switch(key="save_last_online", text=L.g("save_last_seen"), default=False, subtext=L.g("save_last_seen_sub"), link_alias="spy_last_online"),
+            Switch(key="presence_only_hidden", text=L.g("only_hidden"), default=True, link_alias="spy_only_hidden"),
+            Selector(key="presence_decay", text=L.g("decay"), default=1, items=["30s", "45s", "60s", "120s"], link_alias="spy_decay"),
+            Text(text=L.g("tracked_users"), icon="msg_contacts", on_click=lambda v: plugin._show_presence_tracked(), link_alias="spy_tracked_users"),
+            Text(text=L.g("journal"), icon="msg_log", on_click=lambda v: plugin._show_presence_log(), link_alias="spy_journal"),
+            Text(text=L.g("wipe_tracker"), icon="msg_clear", on_click=lambda v: self._wipe_presence(), link_alias="spy_wipe_tracker"),
         ]
         return items
 
@@ -8905,20 +8905,20 @@ class MaxReExteraPlugin(BasePlugin):
         self._load_filters()
         items = [
             Header(text=L.g("enable_filters")),
-            Switch(key="filters_enabled", text=L.g("enable_features"), default=True, subtext=L.g("enable_features_sub"), icon="msg_search", on_change=lambda v: self._on_tab_toggle("filters_enabled", v)),
-            Text(text=L.g("shadowban"), icon="msg_block", subtext=L.g("shadowban_row_sub"), on_click=lambda v: self._show_shadowban_manager()),
-            Text(text=L.g("regex_quick"), icon="msg_search", subtext=L.g("regex_quick_sub"), on_click=lambda v: self._show_rx_manager()),
+            Switch(key="filters_enabled", text=L.g("enable_features"), default=True, subtext=L.g("enable_features_sub"), icon="msg_search", on_change=lambda v: self._on_tab_toggle("filters_enabled", v), link_alias="filters_enabled"),
+            Text(text=L.g("shadowban"), icon="msg_block", subtext=L.g("shadowban_row_sub"), on_click=lambda v: self._show_shadowban_manager(), link_alias="filters_shadowban"),
+            Text(text=L.g("regex_quick"), icon="msg_search", subtext=L.g("regex_quick_sub"), on_click=lambda v: self._show_rx_manager(), link_alias="filters_regex_quick"),
             Divider(),
         ]
         if not self._tab_on("filters_enabled"):
             return items
         items += [
-            Text(text=L.g("regex_patterns"), icon="msg_search", on_click=self._show_rx_manager),
+            Text(text=L.g("regex_patterns"), icon="msg_search", on_click=self._show_rx_manager, link_alias="filters_patterns"),
             Divider(),
-            Text(text=L.g("add_filter"), icon="msg_add", create_sub_fragment=self._fe_fragment(-1)),
+            Text(text=L.g("add_filter"), icon="msg_add", create_sub_fragment=self._fe_fragment(-1), link_alias="filters_add"),
         ]
         for i, f in enumerate(self._filters):
-            items.append(Text(text=f"{'[+]' if f.get('enabled',True) else '[-]'} {f.get('expression','')}", subtext=L.g("inverted") if f.get("inverted") else None, create_sub_fragment=self._fe_fragment(i)))
+            items.append(Text(text=f"{'[+]' if f.get('enabled',True) else '[-]'} {f.get('expression','')}", subtext=L.g("inverted") if f.get("inverted") else None, create_sub_fragment=self._fe_fragment(i), link_alias="filter_%d" % i))
         return items
 
     def _fe_fragment(self, idx):
@@ -8997,16 +8997,16 @@ class MaxReExteraPlugin(BasePlugin):
                     pass
             items = [
                 Header(text=L.g("new_filter") if is_new else L.g("editor")),
-                Input(key=k_expr, text=L.g("regex_expr"), default=f.get("expression", "")),
-                Switch(key=k_on, text=L.g("enabled"), default=f.get("enabled", True)),
-                Switch(key=k_ic, text=L.g("case_insensitive"), default=f.get("ignore_case", True)),
-                Switch(key=k_inv, text=L.g("inverted"), default=f.get("inverted", False), subtext=L.g("inverted_sub")),
-                Switch(key=k_cc, text=L.g("channels_only"), default=f.get("channels_only", False), subtext=L.g("channels_only_sub")),
+                Input(key=k_expr, text=L.g("regex_expr"), default=f.get("expression", ""), link_alias=k_expr),
+                Switch(key=k_on, text=L.g("enabled"), default=f.get("enabled", True), link_alias=k_on),
+                Switch(key=k_ic, text=L.g("case_insensitive"), default=f.get("ignore_case", True), link_alias=k_ic),
+                Switch(key=k_inv, text=L.g("inverted"), default=f.get("inverted", False), subtext=L.g("inverted_sub"), link_alias=k_inv),
+                Switch(key=k_cc, text=L.g("channels_only"), default=f.get("channels_only", False), subtext=L.g("channels_only_sub"), link_alias=k_cc),
                 Divider(),
-                Text(text=L.g("save"), icon="msg_check", on_click=save),
+                Text(text=L.g("save"), icon="msg_check", on_click=save, link_alias=key + "_save"),
             ]
             if not is_new:
-                items.append(Text(text=L.g("delete"), icon="msg_delete", on_click=delete))
+                items.append(Text(text=L.g("delete"), icon="msg_delete", on_click=delete, link_alias=key + "_delete"))
             return items
         except Exception:
             return []
@@ -9017,18 +9017,18 @@ class MaxReExteraPlugin(BasePlugin):
             return items
         return items + [
             Header(text=L.g("hacker")),
-            Switch(key="hide_ads", text=L.g("hide_ads"), default=True),
-            Switch(key="hide_feed_ads", text=L.g("hide_feed_ads"), default=True, subtext=L.g("hide_feed_ads_sub")),
-            Switch(key="no_forward_limit", text=L.g("no_fwd_limit"), default=False, subtext=L.g("no_fwd_limit_sub")),
-            Switch(key="fake_premium", text=L.g("local_premium"), default=False, subtext=L.g("local_premium_sub")),
-            Switch(key="keep_once", text=L.g("once_media"), default=False, subtext=L.g("once_media_sub")),
+            Switch(key="hide_ads", text=L.g("hide_ads"), default=True, link_alias="hacker_hide_ads"),
+            Switch(key="hide_feed_ads", text=L.g("hide_feed_ads"), default=True, subtext=L.g("hide_feed_ads_sub"), link_alias="hacker_hide_feed_ads"),
+            Switch(key="no_forward_limit", text=L.g("no_fwd_limit"), default=False, subtext=L.g("no_fwd_limit_sub"), link_alias="hacker_no_fwd_limit"),
+            Switch(key="fake_premium", text=L.g("local_premium"), default=False, subtext=L.g("local_premium_sub"), link_alias="hacker_fake_premium"),
+            Switch(key="keep_once", text=L.g("once_media"), default=False, subtext=L.g("once_media_sub"), link_alias="hacker_keep_once"),
             Divider(),
             Header(text=L.g("bypass")),
-            Switch(key="allow_screenshots", text=L.g("screenshots"), default=False, subtext=L.g("screenshots_sub")),
-            Switch(key="bypass_noforward", text=L.g("noforwards"), default=False, subtext=L.g("noforward_sub")),
-            Switch(key="gif_reuploader", text=L.g("gif_reuploader"), default=True, subtext=L.g("gif_reuploader_sub")),
-            Selector(key="fwd_mode", text=L.g("fwd_mode"), default=0, items=[L.g("fwd_copy"), L.g("fwd_try")]),
-            Switch(key="bypass_story_save", text=L.g("stories_bypass"), default=False, subtext=L.g("stories_bypass_sub")),
+            Switch(key="allow_screenshots", text=L.g("screenshots"), default=False, subtext=L.g("screenshots_sub"), link_alias="hacker_screenshots"),
+            Switch(key="bypass_noforward", text=L.g("noforwards"), default=False, subtext=L.g("noforward_sub"), link_alias="hacker_noforward"),
+            Switch(key="gif_reuploader", text=L.g("gif_reuploader"), default=True, subtext=L.g("gif_reuploader_sub"), link_alias="hacker_gif_reuploader"),
+            Selector(key="fwd_mode", text=L.g("fwd_mode"), default=0, items=[L.g("fwd_copy"), L.g("fwd_try")], link_alias="hacker_fwd_mode"),
+            Switch(key="bypass_story_save", text=L.g("stories_bypass"), default=False, subtext=L.g("stories_bypass_sub"), link_alias="hacker_story_save"),
         ]
 
     def _show_shadowban_manager(self):
@@ -9396,31 +9396,31 @@ class MaxReExteraPlugin(BasePlugin):
                 return 0
         return [
             Header(text=L.g("info")),
-            Text(text=L.g("author_channel"), icon="msg_channel", on_click=_open_channel),
-            Text(text=L.g("credits"), icon="msg_fave", create_sub_fragment=lambda: [
+            Text(text=L.g("author_channel"), icon="msg_channel", on_click=_open_channel, link_alias="misc_channel"),
+            Text(text=L.g("credits"), icon="msg_fave", link_alias="misc_credits", create_sub_fragment=lambda: [
                 Header(text=L.g("credits")),
-                Text(text="@exteraOwner", subtext=L.g("cr_extera")),
-                Text(text="@bleizix", subtext=L.g("cr_bleizix")),
-                Text(text="@shiawasez", subtext=L.g("cr_shiawasez")),
-                Text(text="@ThisisGame_tig", subtext=L.g("cr_thisisgame")),
-                Text(text="@summering", subtext=L.g("cr_summering")),
-                Text(text="@homewatcha", subtext=L.g("cr_testing")),
-                Text(text="@Jebebr", subtext=L.g("cr_testing")),
-                Text(text="@AdzusaNakano", subtext=L.g("cr_testing")),
-                Text(text="@Farewalls", subtext=L.g("cr_testing")),
-                Text(text="@dyr0v_ukraine", subtext=L.g("cr_testing")),
-                Text(text="@ablipo", subtext=L.g("cr_testing")),
-                Text(text="@AlexeiCrystal", subtext=L.g("cr_alexeicrystal")),
-                Text(text="@kvuco", subtext=L.g("cr_kvuco")),
-                Text(text=L.g("cr_ai_title"), subtext=L.g("cr_ai")),
+                Text(text="@exteraOwner", subtext=L.g("cr_extera"), link_alias="cr_extera"),
+                Text(text="@bleizix", subtext=L.g("cr_bleizix"), link_alias="cr_bleizix"),
+                Text(text="@shiawasez", subtext=L.g("cr_shiawasez"), link_alias="cr_shiawasez"),
+                Text(text="@ThisisGame_tig", subtext=L.g("cr_thisisgame"), link_alias="cr_thisisgame"),
+                Text(text="@summering", subtext=L.g("cr_summering"), link_alias="cr_summering"),
+                Text(text="@homewatcha", subtext=L.g("cr_testing"), link_alias="cr_homewatcha"),
+                Text(text="@Jebebr", subtext=L.g("cr_testing"), link_alias="cr_jebebr"),
+                Text(text="@AdzusaNakano", subtext=L.g("cr_testing"), link_alias="cr_adzusa"),
+                Text(text="@Farewalls", subtext=L.g("cr_testing"), link_alias="cr_farewalls"),
+                Text(text="@dyr0v_ukraine", subtext=L.g("cr_testing"), link_alias="cr_dyr0v"),
+                Text(text="@ablipo", subtext=L.g("cr_testing"), link_alias="cr_ablipo"),
+                Text(text="@AlexeiCrystal", subtext=L.g("cr_alexeicrystal"), link_alias="cr_alexeicrystal"),
+                Text(text="@kvuco", subtext=L.g("cr_kvuco"), link_alias="cr_kvuco"),
+                Text(text=L.g("cr_ai_title"), subtext=L.g("cr_ai"), link_alias="cr_ai"),
             ]),
             Divider(),
             Header(text=L.g("params")),
-            Switch(key="show_in_settings", text=L.g("show_in_settings"), default=True, subtext=L.g("show_in_settings_sub"), icon="msg_settings", on_change=lambda v: plugin._on_show_in_settings_change(v)),
-            Selector(key="plugin_lang", text=L.g("language"), default=_cur_lang_idx(), items=_lang_items, icon="msg_language", on_change=_on_lang_change),
+            Switch(key="show_in_settings", text=L.g("show_in_settings"), default=True, subtext=L.g("show_in_settings_sub"), icon="msg_settings", on_change=lambda v: plugin._on_show_in_settings_change(v), link_alias="misc_show_in_settings"),
+            Selector(key="plugin_lang", text=L.g("language"), default=_cur_lang_idx(), items=_lang_items, icon="msg_language", on_change=_on_lang_change, link_alias="misc_language"),
             Divider(),
             Header(text=L.g("backup")),
-            Text(text=L.g("export_to_saved"), icon="msg_saved", subtext=L.g("export_to_saved_sub"), on_click=plugin._export_settings),
+            Text(text=L.g("export_to_saved"), icon="msg_saved", subtext=L.g("export_to_saved_sub"), on_click=plugin._export_settings, link_alias="misc_export"),
         ]
 
 
