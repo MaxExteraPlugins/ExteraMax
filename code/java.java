@@ -597,9 +597,9 @@ public class Main {
         }
     }
 
-    public static final String VERSION = "1.2.24";
+    public static final String VERSION = "1.2.25";
 
-    public static final int VERSION_CODE = 144;
+    public static final int VERSION_CODE = 145;
 
     private static Config cfg;
 
@@ -14847,5 +14847,37 @@ private void go() throws Exception {
 
     }
 
-}
 
+    // ==================== Python helpers: Exclusions & Shadowban ====================
+    public static int pyExclusionGetMode(long did, boolean isReading) {
+        return ExclusionsStore.getMode(did, isReading);
+    }
+
+    public static void pyExclusionSet(long did, int reading, int typing) {
+        ExclusionsStore.set(did, reading, typing);
+    }
+
+    public static void pyExclusionRemove(long did) {
+        ExclusionsStore.remove(did);
+    }
+
+    public static List<DialogExclusion> pyExclusionAll() {
+        return ExclusionsStore.all();
+    }
+
+    public static List<ShadowbanEntry> pyShadowbanAll() {
+        return ShadowbanStore.all();
+    }
+
+    public static void pyShadowbanAdd(long uid, boolean hideDialog, boolean hideInGroups) {
+        ShadowbanStore.add(uid, hideDialog, hideInGroups);
+    }
+
+    public static void pyShadowbanRemove(long uid) {
+        ShadowbanStore.remove(uid);
+    }
+
+    public static ShadowbanEntry pyShadowbanGet(long uid) {
+        return ShadowbanStore.map.get(Long.valueOf(uid));
+    }
+}

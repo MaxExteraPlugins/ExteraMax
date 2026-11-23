@@ -59,7 +59,7 @@ __id__ = "ExteraMax"
 __name__ = "ExteraMax"
 __description__ = "[EN]: Updated version of the «re:extera» plugin («ghost» mode, spy features, message filters, and much more).\n\n[RU]: Обновленная версия плагина «re:extera» (режим «призрака», функции шпиона, фильтры сообщений и многое другое)."
 __author__ = "@itNotMax - @MaxExteraPlugins"
-__version__ = "1.5.27"
+__version__ = "1.5.28"
 __icon__ = "MaxExteraPluginsStickers/30"
 __min_version__ = "12.10.6"
 __app_version__ = ">=12.8.1"
@@ -106,6 +106,74 @@ _ACTIVE_DEX = None
 def _dex():
     d = _ACTIVE_DEX
     return d if (d is not None and d.loaded) else None
+
+class _ExclusionsStoreWrapper:
+    @staticmethod
+    def getMode(did, isReading):
+        d = _dex()
+        if d:
+            res = d.call("pyExclusionGetMode", jlong(int(did)), bool(isReading))
+            return int(res) if res is not None else 0
+        return 0
+
+    @staticmethod
+    def set(did, reading, typing):
+        d = _dex()
+        if d:
+            d.call("pyExclusionSet", jlong(int(did)), jint(int(reading)), jint(int(typing)))
+
+    @staticmethod
+    def remove(did):
+        d = _dex()
+        if d:
+            d.call("pyExclusionRemove", jlong(int(did)))
+
+    @staticmethod
+    def all():
+        d = _dex()
+        if d:
+            res = d.call("pyExclusionAll")
+            if res is not None:
+                return res
+        return ArrayList()
+
+
+class _ShadowbanStoreWrapper:
+    class _MapWrapper:
+        @staticmethod
+        def get(uid):
+            d = _dex()
+            if d:
+                return d.call("pyShadowbanGet", jlong(int(uid)))
+            return None
+    map = _MapWrapper()
+
+    @staticmethod
+    def all():
+        d = _dex()
+        if d:
+            res = d.call("pyShadowbanAll")
+            if res is not None:
+                return res
+        return ArrayList()
+
+    @staticmethod
+    def add(uid, hideDialog, hideInGroups):
+        d = _dex()
+        if d:
+            d.call("pyShadowbanAdd", jlong(int(uid)), bool(hideDialog), bool(hideInGroups))
+
+    @staticmethod
+    def remove(uid):
+        d = _dex()
+        if d:
+            d.call("pyShadowbanRemove", jlong(int(uid)))
+
+
+class JMain:
+    ExclusionsStore = _ExclusionsStoreWrapper
+    ShadowbanStore = _ShadowbanStoreWrapper
+
 
 
 def read_file_from_uri(ctx, uri):
@@ -7469,7 +7537,6 @@ class MaxReExteraPlugin(BasePlugin):
                     elif hasattr(p, "channel_id") and p.channel_id: req_did = -_int(p.channel_id)
                 if req_did:
                     # 0=DEFAULT, 1=ALWAYS, 2=NEVER
-                    from com.maxplugins.sample import Main as JMain
                     if request_name in READ_REQS:
                         r_mode = JMain.ExclusionsStore.getMode(jlong(req_did), True)
                         if r_mode == 1:
@@ -9036,7 +9103,6 @@ class MaxReExteraPlugin(BasePlugin):
         plugin = self
         def _ui():
             try:
-                from com.maxplugins.sample import Main as JMain
                 frag = get_last_fragment()
                 act = frag.getParentActivity() if frag else None
                 if not act:
@@ -9092,7 +9158,6 @@ class MaxReExteraPlugin(BasePlugin):
         plugin = self
         def _ui():
             try:
-                from com.maxplugins.sample import Main as JMain
                 frag = get_last_fragment()
                 act = frag.getParentActivity() if frag else None
                 if not act:
@@ -9133,7 +9198,6 @@ class MaxReExteraPlugin(BasePlugin):
                 if not act:
                     return
                 def on_picked(ids):
-                    from com.maxplugins.sample import Main as JMain
                     added = 0
                     for uid in ids:
                         if uid > 0:
@@ -9167,7 +9231,6 @@ class MaxReExteraPlugin(BasePlugin):
                     try:
                         uid = int(str(val).strip())
                         if uid > 0:
-                            from com.maxplugins.sample import Main as JMain
                             JMain.ShadowbanStore.add(jlong(uid), True, True)
                             BulletinHelper.show_success(L.g("shadowban_added"))
                             run_on_ui_thread(plugin._show_shadowban_manager)
@@ -9186,7 +9249,6 @@ class MaxReExteraPlugin(BasePlugin):
         plugin = self
         def _ui():
             try:
-                from com.maxplugins.sample import Main as JMain
                 frag = get_last_fragment()
                 act = frag.getParentActivity() if frag else None
                 if not act:
@@ -9243,7 +9305,6 @@ class MaxReExteraPlugin(BasePlugin):
         plugin = self
         def _ui():
             try:
-                from com.maxplugins.sample import Main as JMain
                 frag = get_last_fragment()
                 act = frag.getParentActivity() if frag else None
                 if not act:
@@ -9318,7 +9379,6 @@ class MaxReExteraPlugin(BasePlugin):
         plugin = self
         def _ui():
             try:
-                from com.maxplugins.sample import Main as JMain
                 frag = get_last_fragment()
                 act = frag.getParentActivity() if frag else None
                 if not act:
@@ -9338,7 +9398,6 @@ class MaxReExteraPlugin(BasePlugin):
         plugin = self
         def _ui():
             try:
-                from com.maxplugins.sample import Main as JMain
                 frag = get_last_fragment()
                 act = frag.getParentActivity() if frag else None
                 if not act:
