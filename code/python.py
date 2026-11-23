@@ -40,9 +40,6 @@ from org.telegram.ui.Components import BulletinFactory, ColoredImageSpan
 
 from android_utils import log, run_on_ui_thread
 
-
-def log(*args, **kwargs):
-    pass
 from base_plugin import (BasePlugin, HookResult, HookStrategy, MenuItemData,
                          MenuItemType, MethodHook, MethodReplacement, XposedHook)
 from client_utils import (get_messages_controller, get_messages_storage,
@@ -64,7 +61,6 @@ __description__ = "[EN]: Updated version of the «re:extera» plugin («ghost» 
 __author__ = "@itNotMax - @MaxExteraPlugins"
 __version__ = "1.5.26"
 __icon__ = "MaxExteraPluginsStickers/30"
-__min_version__ = "12.10.6"
 __app_version__ = ">=12.8.1"
 __sdk_version__ = ">=1.4.3.3"
 
@@ -98,6 +94,37 @@ ONE_YEAR_SECONDS = 365 * 24 * 60 * 60
 _OPT_REVISIONS = 7171
 _OPT_MARK_READ = 7272
 _OPT_VIEW_DELETED = 7373
+
+# Canonical implementations of the pure-logic helpers below live in the Java
+# side (com.maxplugins.sample.Main). Once the DEX is loaded the plugin publishes
+# it here so module-level helpers can delegate to Java; the Python bodies are
+# kept only as a fallback for the short window before the DEX is ready.
+_ACTIVE_DEX = None
+
+
+def _dex():
+    d = _ACTIVE_DEX
+    return d if (d is not None and d.loaded) else None
+
+
+def read_file_from_uri(ctx, uri):
+    try:
+        cr = ctx.getContentResolver()
+        is_stream = cr.openInputStream(uri)
+        if is_stream is None:
+            return None
+        from java.io import BufferedReader, InputStreamReader
+        reader = BufferedReader(InputStreamReader(is_stream, "UTF-8"))
+        sb = []
+        line = reader.readLine()
+        while line is not None:
+            sb.append(str(line))
+            line = reader.readLine()
+        reader.close()
+        return "\n".join(sb)
+    except Exception as e:
+        log(f"[MAX] read_file_from_uri failed: {e}")
+        return None
 
 
 class L:
@@ -136,12 +163,6 @@ class L:
         "sel_always_off": "Всегда выкл.", "sel_with_ghost": "Только с призраком", "sel_always_on": "Всегда вкл.",
         "sel_ask_on_open": "Спрашивать при открытии", "ghost_status_offline": "оффлайн",
         "max_vigilance": "Максимальная бдительность", "keep_alive": "Оставлять клиент активным", "keep_alive_sub": "Работа в фоне даже после закрытия (тратит батарею)",
-        "spy_mode": "Режим шпиона",
-        "save_deleted": "Сохранять удалённые", "save_deleted_sub": "Удалённые сообщения останутся в чате",
-        "save_edits": "Сохранять историю правок", "save_edits_sub": "Все версии отредактированных сообщений",
-        "save_bots": "Сохранять в чатах с ботами",
-        "save_online": "Сохранять последний онлайн", "save_online_sub": "Запоминать время онлайна всех пользователей",
-        "save_own_del": "Не сохранять свои удаления",
         "local_read_header": "Локальное чтение",
         "local_read_msgs": "В личных чатах",
         "local_read_private": "В личных (приватных)",
@@ -245,6 +266,31 @@ class L:
         "import_done": "Настройки импортированы! Перезагрузите плагин",
         "import_error": "Ошибка импорта",
         "username_or_id": "@username или id",
+        "shadowban": "Теневой бан",
+        "shadowban_empty": "Список теневого бана пуст. Добавьте пользователя из меню профиля или по ID.",
+        "shadowban_added": "Пользователь добавлен в теневой бан",
+        "shadowban_removed": "Пользователь убран из теневого бана",
+        "shadowban_hide_dialog": "Скрывать диалог",
+        "shadowban_hide_groups": "Скрывать в группах",
+        "shadowban_remove": "Убрать из теневого бана",
+        "sb_dialog_hidden": "диалог скрыт", "sb_dialog_visible": "диалог виден",
+        "sb_groups_hidden": "группы скрыты", "sb_groups_visible": "группы видны",
+        "exclusions": "Исключения чатов",
+        "exclusions_empty": "Список исключений пуст. Настройте чтение и тайпинг для отдельного чата.",
+        "exclusions_saved": "Исключение сохранено",
+        "exclusions_removed": "Исключение удалено",
+        "exclusions_reading": "Чтение", "exclusions_typing": "Тайпинг",
+        "mode_default": "По умолчанию", "mode_always": "Всегда", "mode_never": "Никогда",
+        "reading_default": "По умолчанию (как в Ghost)", "reading_always": "Всегда отправлять чтение", "reading_never": "Никогда не читать",
+        "typing_default": "По умолчанию (как в Ghost)", "typing_always": "Всегда отправлять тайпинг", "typing_never": "Никогда не показывать тайпинг",
+        "reading_for": "Чтение для чата", "typing_for": "Тайпинг для чата",
+        "enter_user_id": "Введите User ID", "enter_dialog_id": "Введите Dialog/Chat ID",
+        "by_id": "По ID", "pick_chat": "Выбрать чат", "clear_list_confirm": "Очистить весь список?", "edit": "Изменить",
+        "exclusions_row_sub": "Настройка чтения и тайпинга по отдельным чатам",
+        "shadowban_row_sub": "Управление списком скрытых пользователей",
+        "regex_quick": "Regex-фильтры (быстрый список)", "regex_quick_sub": "Фильтрация сообщений по регулярным выражениям",
+        "noforward_sub": "Обход запрета копирования и пересылки",
+        "gif_reuploader": "Перезаливка GIF", "gif_reuploader_sub": "Сохранение защищённых GIF в Избранное без ограничений",
         "cr_extera": "Без экстеры ничего бы не было",
         "cr_bleizix": "Фундамент re:extera",
         "cr_shiawasez": "Обновление re:extera (v2)",
@@ -252,8 +298,10 @@ class L:
         "cr_summering": "Тестирование и развитие",
         "cr_testing": "Тестирование и развитие",
         "cr_kvuco": "AdBlock, Mirror, RFS",
-        "cr_alexeicrystal": "Скрытие рекламы в ленте",
+        "cr_alexeicrystal": "Скрытие рекламы в ленте, улучшения кода",
                 "cr_ai_title": "ИИ", "cr_ai": "Реализация :)))",
+        "downloading_retry": "Загрузка... попробуйте снова",
+        "dex_not_loaded": "DEX не загружен",
 
 
     }
@@ -393,6 +441,31 @@ class L:
         "import_done": "Settings imported! Reload plugin",
         "import_error": "Import error",
         "username_or_id": "@username or ID",
+        "shadowban": "Shadowban",
+        "shadowban_empty": "Shadowban list is empty. Add a user from the profile menu or by ID.",
+        "shadowban_added": "User added to shadowban",
+        "shadowban_removed": "User removed from shadowban",
+        "shadowban_hide_dialog": "Hide dialog",
+        "shadowban_hide_groups": "Hide in groups",
+        "shadowban_remove": "Remove from shadowban",
+        "sb_dialog_hidden": "dialog hidden", "sb_dialog_visible": "dialog visible",
+        "sb_groups_hidden": "groups hidden", "sb_groups_visible": "groups visible",
+        "exclusions": "Chat exclusions",
+        "exclusions_empty": "Exclusions list is empty. Configure reading and typing for a specific chat.",
+        "exclusions_saved": "Exclusion saved",
+        "exclusions_removed": "Exclusion removed",
+        "exclusions_reading": "Reading", "exclusions_typing": "Typing",
+        "mode_default": "Default", "mode_always": "Always", "mode_never": "Never",
+        "reading_default": "Default (as in Ghost)", "reading_always": "Always send read receipts", "reading_never": "Never read",
+        "typing_default": "Default (as in Ghost)", "typing_always": "Always send typing", "typing_never": "Never show typing",
+        "reading_for": "Reading for chat", "typing_for": "Typing for chat",
+        "enter_user_id": "Enter User ID", "enter_dialog_id": "Enter Dialog/Chat ID",
+        "by_id": "By ID", "pick_chat": "Pick chat", "clear_list_confirm": "Clear the whole list?", "edit": "Edit",
+        "exclusions_row_sub": "Configure reading and typing per chat",
+        "shadowban_row_sub": "Manage hidden users list",
+        "regex_quick": "Regex filters (quick list)", "regex_quick_sub": "Filter messages by regular expressions",
+        "noforward_sub": "Bypass copy and forward restrictions",
+        "gif_reuploader": "Gif reuploader", "gif_reuploader_sub": "Save protected GIFs to Saved Messages without restrictions",
         "show_in_settings": "Show in Telegram Settings", "show_in_settings_sub": "Show ExteraMax button in Telegram main settings",
         "show_in_settings_restart": "Change takes effect after app restart",
         "cr_extera": "Nothing would exist without extera",
@@ -402,8 +475,10 @@ class L:
         "cr_summering": "Testing and development",
         "cr_testing": "Testing and development",
         "cr_kvuco": "AdBlock, Mirror, RFS",
-        "cr_alexeicrystal": "Hiding ads in the feed",
+        "cr_alexeicrystal": "Hiding ads in the feed, code improvements",
                 "cr_ai_title": "AI", "cr_ai": "Implementation :)))",
+        "downloading_retry": "Downloading... try again",
+        "dex_not_loaded": "DEX not loaded",
 
 
     }
@@ -983,6 +1058,12 @@ def _jlist(jl):
     return out
 
 def _peer_did(msg):
+    d = _dex()
+    if d is not None:
+        try:
+            return int(d.call("peerDid", msg))
+        except Exception:
+            pass
     try:
         p = msg.peer_id
         if isinstance(p, TLRPC.TL_peerUser):
@@ -996,6 +1077,13 @@ def _peer_did(msg):
     return 0
 
 def _encode_msg(msg):
+    d = _dex()
+    if d is not None:
+        try:
+            r = d.call("encodeMessageB64", msg)
+            return str(r) if r is not None else None
+        except Exception:
+            pass
     buf = None
     try:
         buf = NativeByteBuffer(msg.getObjectSize())
@@ -1013,6 +1101,12 @@ def _encode_msg(msg):
         return None
 
 def _decode_msg(raw):
+    d = _dex()
+    if d is not None and raw:
+        try:
+            return d.call("decodeMessageB64", JString(str(raw)))
+        except Exception:
+            pass
     buf = None
     try:
         data = Base64.decode(raw, Base64.NO_WRAP)
@@ -1032,6 +1126,12 @@ def _decode_msg(raw):
         return None
 
 def _format_date(ts):
+    d = _dex()
+    if d is not None:
+        try:
+            return str(d.call("formatDate", jlong(int(ts))))
+        except Exception:
+            pass
     try:
         import datetime
         dt = datetime.datetime.fromtimestamp(int(ts))
@@ -1043,6 +1143,13 @@ def _format_date(ts):
             return ""
 
 def _get_media_hash(msg):
+    d = _dex()
+    if d is not None:
+        try:
+            r = d.call("mediaHash", msg)
+            return str(r) if r is not None else None
+        except Exception:
+            pass
     try:
         if not msg:
             return None
@@ -1508,26 +1615,6 @@ def _get_vault_attach(did, mid):
     except Exception:
         pass
     return None
-
-
-def _get_vault_attach_by_hash(did, mid, media_hash):
-    if not media_hash:
-        return _get_vault_attach(did, mid)
-    try:
-        attach_dir = _get_attach_dir()
-        if not attach_dir:
-            return None
-        prefix = f"{did}_{mid}_{media_hash}"
-        for fname in os.listdir(attach_dir):
-            if fname.startswith(prefix):
-                full = os.path.join(attach_dir, fname)
-                if os.path.isfile(full) and os.path.getsize(full) > 0:
-                    return full
-    except Exception:
-        pass
-    return None
-
-
 def _get_vault_attachs(did, mid):
     try:
         attach_dir = _get_attach_dir()
@@ -2133,16 +2220,13 @@ class Vault:
         except Exception:
             return False
 
-    def get_removed_mids(self, did):
-        return [mid for (d, mid) in self._removed if d == int(did)]
-
     def get_removed_list(self, did):
         result = []
         try:
             conn = self._sync_conn()
             try:
                 cur = conn.cursor()
-                cur.execute("SELECT mid, data, timestamp FROM removed WHERE dialog_id=? ORDER BY timestamp DESC LIMIT 200", (int(did),))
+                cur.execute("SELECT message_id, data, timestamp FROM removed WHERE dialog_id=? ORDER BY timestamp DESC LIMIT 200", (int(did),))
                 for row in cur.fetchall():
                     mid = int(row[0])
                     text = str(row[1]) if row[1] else ""
@@ -3963,6 +4047,8 @@ class MaxReExteraPlugin(BasePlugin):
             self.dex.load()
         except Exception as e:
             log(f"[MAX] dex: {e}")
+        global _ACTIVE_DEX
+        _ACTIVE_DEX = self.dex
         self._sync_settings_to_java()
         self._sync_settings_entry()
         self.vault = Vault()
@@ -4009,6 +4095,8 @@ class MaxReExteraPlugin(BasePlugin):
         if self._gs("fake_premium", False):
             self._revert_fake_premium()
         self.dex.unload()
+        global _ACTIVE_DEX
+        _ACTIVE_DEX = None
         for u in self._unhooks:
             try:
                 self.unhook_method(u)
@@ -4344,7 +4432,7 @@ class MaxReExteraPlugin(BasePlugin):
                     f = None
             if f is None or not f.exists():
                 fl.loadFile(doc, message, 1, 0)
-                BulletinHelper.show_info("Downloading... try again")
+                BulletinHelper.show_info(L.g("downloading_retry"))
                 return
             content = read_file(str(f.getAbsolutePath()))
             if content is None:
@@ -4539,27 +4627,6 @@ class MaxReExteraPlugin(BasePlugin):
         except Exception as e:
             log(f"[MAX] manual import picker: {e}")
 
-    # Helper for manual import
-    def read_file_from_uri(ctx, uri):
-        try:
-            from android.content import ContentResolver
-            cr = ctx.getContentResolver()
-            is_stream = cr.openInputStream(uri)
-            if is_stream is None:
-                return None
-            from java.io import BufferedReader, InputStreamReader
-            reader = BufferedReader(InputStreamReader(is_stream, "UTF-8"))
-            sb = []
-            line = reader.readLine()
-            while line is not None:
-                sb.append(str(line))
-                line = reader.readLine()
-            reader.close()
-            return "\n".join(sb)
-        except Exception as e:
-            log(f"[MAX] read_file_from_uri failed: {e}")
-            return None
-
     def _refresh_attach_folder_label(self):
         # subtext у Text(...) вычисляется один раз при построении create_settings()
         # и дальше не привязан к _get_current_folder_display(), поэтому после смены
@@ -4662,6 +4729,11 @@ class MaxReExteraPlugin(BasePlugin):
         return f"id{did}"
 
     def _fmt_size(self, size):
+        if self.dex and self.dex.loaded:
+            try:
+                return str(self.dex.call("formatSize", jlong(int(size))))
+            except Exception:
+                pass
         if size < 1024:
             return f"{size} B"
         if size < 1024 * 1024:
@@ -7576,7 +7648,7 @@ class MaxReExteraPlugin(BasePlugin):
             if self.dex and self.dex.loaded:
                 self.dex.call("pySyncAllChats")
             else:
-                BulletinHelper.show_info("DEX not loaded")
+                BulletinHelper.show_info(L.g("dex_not_loaded"))
         except Exception as e:
             log(f"[MAX] syncAllChats: {e}")
 
@@ -7862,6 +7934,11 @@ class MaxReExteraPlugin(BasePlugin):
         return False
 
     def _compare_versions(self, v1, v2):
+        if self.dex and self.dex.loaded:
+            try:
+                return int(self.dex.call("compareVersions", JString(str(v1)), JString(str(v2))))
+            except Exception:
+                pass
         try:
             def parse(v):
                 return [int(x) for x in str(v).strip().split(".")]
@@ -8168,6 +8245,11 @@ class MaxReExteraPlugin(BasePlugin):
 
     def _presence_decay(self):
         i = _int(self.get_setting("presence_decay", 1), 1)
+        if self.dex and self.dex.loaded:
+            try:
+                return int(self.dex.call("presenceDecaySeconds", jint(i)))
+            except Exception:
+                pass
         return [30, 45, 60, 120][i] if 0 <= i < 4 else 45
 
     def _presence_is_hidden(self, uid, account=None):
@@ -8338,6 +8420,11 @@ class MaxReExteraPlugin(BasePlugin):
 
     def _presence_fmt_dur(self, sec):
         sec = int(sec)
+        if self.dex and self.dex.loaded:
+            try:
+                return str(self.dex.call("formatDuration", jlong(sec)))
+            except Exception:
+                pass
         if sec < 60:
             return f"{sec}s"
         if sec < 3600:
@@ -8649,7 +8736,7 @@ class MaxReExteraPlugin(BasePlugin):
         log("[MAX] create_settings: building settings UI")
         entries = []
         try:
-            entries.append(Custom(factory=_StickerFactory.instance.java))
+            entries.append(Custom(factory=_StickerFactory.instance.java, link_alias="sticker_row"))
         except Exception as e:
             log(f"[MAX] create_settings: sticker factory row failed: {e}")
         for text_key, icon, sub in (
@@ -8659,12 +8746,12 @@ class MaxReExteraPlugin(BasePlugin):
             ("hacker", "msg_fave", self._ph),
         ):
             try:
-                entries.append(Text(text=L.g(text_key), icon=icon, create_sub_fragment=sub))
+                entries.append(Text(text=L.g(text_key), icon=icon, create_sub_fragment=sub, link_alias="page_" + text_key))
             except Exception as e:
                 log(f"[MAX] create_settings: '{text_key}' tab failed: {e}")
         try:
             entries.append(Divider())
-            entries.append(Text(text=L.g("settings_misc"), icon="msg_settings", create_sub_fragment=self._pmisc))
+            entries.append(Text(text=L.g("settings_misc"), icon="msg_settings", create_sub_fragment=self._pmisc, link_alias="page_misc"))
         except Exception as e:
             log(f"[MAX] create_settings: misc tab failed: {e}")
         if not entries:
@@ -8674,7 +8761,7 @@ class MaxReExteraPlugin(BasePlugin):
     def _tab_master(self, tab, header, icon):
         return [
             Header(text=L.g(header)),
-            Switch(key=tab, text=L.g("enable_features"), default=True, subtext=L.g("enable_features_sub"), icon=icon, on_change=lambda v: self._on_tab_toggle(tab, v)),
+            Switch(key=tab, text=L.g("enable_features"), default=True, subtext=L.g("enable_features_sub"), icon=icon, on_change=lambda v: self._on_tab_toggle(tab, v), link_alias=tab),
         ]
 
     def _on_tab_toggle(self, tab, v):
@@ -8711,45 +8798,45 @@ class MaxReExteraPlugin(BasePlugin):
 
             return items
         items += [
-            Text(text="Исключения чатов (Exclusions)", icon="msg_permissions", subtext="Настройка чтения и тайпинга по отдельным чатам", on_click=lambda v: self._show_exclusions_manager()),
+            Text(text=L.g("exclusions"), icon="msg_permissions", subtext=L.g("exclusions_row_sub"), on_click=lambda v: self._show_exclusions_manager(), link_alias="ghost_exclusions"),
             Divider(),
             Switch(key="ghost_mode", text=L.g("ghost_toggle"), default=False,
                    subtext=L.g("ghost_toggle_sub"), icon="ghost_solar",
-                   on_change=self._on_ghost_change),
-            Switch(key="drawer_ghost_btn", text=L.g("drawer_btn"), default=True),
+                   on_change=self._on_ghost_change, link_alias="ghost_mode"),
+            Switch(key="drawer_ghost_btn", text=L.g("drawer_btn"), default=True, link_alias="ghost_drawer_btn"),
             Divider(),
             Header(text=L.g("ghost_settings")),
             Selector(key="ghost_no_online", text=L.g("no_online"),
-                     default=1, items=self._mode_items()),
+                     default=1, items=self._mode_items(), link_alias="ghost_no_online"),
             Selector(key="ghost_immediate_offline", text=L.g("instant_offline"),
-                     default=1, items=self._mode_items()),
+                     default=1, items=self._mode_items(), link_alias="ghost_instant_offline"),
             Selector(key="ghost_no_typing", text=L.g("no_typing"),
-                     default=1, items=self._mode_items()),
+                     default=1, items=self._mode_items(), link_alias="ghost_no_typing"),
             Selector(key="ghost_no_read", text=L.g("no_read"),
-                     default=1, items=self._mode_items()),
+                     default=1, items=self._mode_items(), link_alias="ghost_no_read"),
             Selector(key="ghost_no_read_stories", text=L.g("no_read_stories"),
-                     default=1, items=self._stories_mode_items()),
+                     default=1, items=self._stories_mode_items(), link_alias="ghost_no_read_stories"),
             Selector(key="silent_send", text=L.g("silent_send"),
-                     default=0, items=self._silent_mode_items()),
+                     default=0, items=self._silent_mode_items(), link_alias="ghost_silent_send"),
             Divider(),
             Switch(key="read_on_action", text=L.g("read_on_action"), default=True,
-                   subtext=L.g("read_on_action_sub")),
-            Switch(key="use_scheduled", text=L.g("use_scheduled"), default=False),
+                   subtext=L.g("read_on_action_sub"), link_alias="ghost_read_on_action"),
+            Switch(key="use_scheduled", text=L.g("use_scheduled"), default=False, link_alias="ghost_use_scheduled"),
             Divider(),
             Header(text=L.g("local_read_header")),
             Switch(key="local_read_msgs", text=L.g("local_read_msgs"),
-                   default=True, subtext=L.g("local_read_msgs_sub")),
+                   default=True, subtext=L.g("local_read_msgs_sub"), link_alias="local_read_msgs"),
             Switch(key="local_read_private", text=L.g("local_read_private"),
-                   default=True),
+                   default=True, link_alias="local_read_private"),
             Switch(key="local_read_groups", text=L.g("local_read_groups"),
-                   default=True),
+                   default=True, link_alias="local_read_groups"),
             Switch(key="local_read_channels", text=L.g("local_read_channels"),
-                   default=True),
+                   default=True, link_alias="local_read_channels"),
             Switch(key="local_read_stories", text=L.g("local_read_stories"),
-                   default=True, subtext=L.g("local_read_stories_sub")),
+                   default=True, subtext=L.g("local_read_stories_sub"), link_alias="local_read_stories"),
             Divider(),
             Header(text=L.g("read_whitelist")),
-            Text(text=L.g("read_wl_users"), icon="msg_contacts", subtext=L.g("read_whitelist_sub"), on_click=lambda v: self._show_read_whitelist()),
+            Text(text=L.g("read_wl_users"), icon="msg_contacts", subtext=L.g("read_whitelist_sub"), on_click=lambda v: self._show_read_whitelist(), link_alias="read_whitelist"),
         ]
         return items
 
@@ -8770,39 +8857,39 @@ class MaxReExteraPlugin(BasePlugin):
             return items
         items += [
             Header(text=L.g("max_vigilance")),
-            Switch(key="keep_app_alive", text=L.g("keep_alive"), default=False, subtext=L.g("keep_alive_sub")),
+            Switch(key="keep_app_alive", text=L.g("keep_alive"), default=False, subtext=L.g("keep_alive_sub"), link_alias="spy_keep_alive"),
             Divider(),
             Header(text=L.g("spy_mode")),
-            Switch(key="save_deleted", text=L.g("save_deleted"), default=True, subtext=L.g("save_deleted_sub")),
-            Switch(key="save_edits", text=L.g("save_edits"), default=True, subtext=L.g("save_edits_sub")),
-            Switch(key="keep_once", text=L.g("save_once_msgs"), default=False, subtext=L.g("save_once_msgs_sub")),
-            Switch(key="save_bot_chats", text=L.g("save_bots"), default=False),
-            Switch(key="track_own_deletions", text=L.g("save_own_del"), default=False),
-            Text(text=L.g("del_customize"), icon="msg_customize", on_click=lambda v: self._open_del_customize()),
-            Text(text=L.g("clear_all_deleted"), icon="msg_delete", subtext=L.g("clear_all_deleted_sub"), on_click=lambda v: plugin._on_clear_all_deleted_click()),
-            Text(text=L.g("sync_all_chats"), icon="msg_retry", subtext=L.g("sync_all_chats_sub"), on_click=lambda v: plugin._on_sync_all_chats_click()),
+            Switch(key="save_deleted", text=L.g("save_deleted"), default=True, subtext=L.g("save_deleted_sub"), link_alias="spy_save_deleted"),
+            Switch(key="save_edits", text=L.g("save_edits"), default=True, subtext=L.g("save_edits_sub"), link_alias="spy_save_edits"),
+            Switch(key="keep_once", text=L.g("save_once_msgs"), default=False, subtext=L.g("save_once_msgs_sub"), link_alias="spy_keep_once"),
+            Switch(key="save_bot_chats", text=L.g("save_bots"), default=False, link_alias="spy_save_bots"),
+            Switch(key="track_own_deletions", text=L.g("save_own_del"), default=False, link_alias="spy_own_deletions"),
+            Text(text=L.g("del_customize"), icon="msg_customize", on_click=lambda v: self._open_del_customize(), link_alias="spy_del_customize"),
+            Text(text=L.g("clear_all_deleted"), icon="msg_delete", subtext=L.g("clear_all_deleted_sub"), on_click=lambda v: plugin._on_clear_all_deleted_click(), link_alias="spy_clear_deleted"),
+            Text(text=L.g("sync_all_chats"), icon="msg_retry", subtext=L.g("sync_all_chats_sub"), on_click=lambda v: plugin._on_sync_all_chats_click(), link_alias="spy_sync_chats"),
             Divider(),
             Header(text=L.g("storage")),
-            Switch(key="save_attachments", text=L.g("save_attachments"), default=False),
-            Switch(key="save_attach_private", text=L.g("save_attach_private"), default=True),
-            Switch(key="save_attach_groups", text=L.g("save_attach_groups"), default=True),
-            Switch(key="save_attach_channels", text=L.g("save_attach_channels"), default=True),
-            Text(text=L.g("attach_folder"), icon="msg_folder", subtext=plugin._get_current_folder_display(), on_click=plugin._pick_attach_folder),
-            Text(text=L.g("attach_folder_reset"), icon="msg_reset", on_click=plugin._reset_attach_folder),
-            Selector(key="max_folder_size", text=L.g("max_folder"), default=2, items=["300 MB", "1 GB", "2 GB", "4 GB", "8 GB", "16 GB", "No limit"]),
-            Selector(key="auto_cleanup_age", text=L.g("auto_cleanup"), default=0, items=["Off", "3 days", "7 days", "14 days", "30 days", "90 days"]),
-            Text(text=L.g("browse_attachments"), icon="msg_gallery", subtext=L.g("browse_attachments_sub"), on_click=plugin._show_browse_attachments),
-            Text(text=L.g("import_from_file"), icon="msg_import", subtext=L.g("import_from_file_sub"), on_click=plugin._import_from_file_picker),
-            Text(text=L.g("wipe_storage"), icon="msg_clear", on_click=plugin._wipe_vault),
+            Switch(key="save_attachments", text=L.g("save_attachments"), default=False, link_alias="spy_save_attachments"),
+            Switch(key="save_attach_private", text=L.g("save_attach_private"), default=True, link_alias="spy_attach_private"),
+            Switch(key="save_attach_groups", text=L.g("save_attach_groups"), default=True, link_alias="spy_attach_groups"),
+            Switch(key="save_attach_channels", text=L.g("save_attach_channels"), default=True, link_alias="spy_attach_channels"),
+            Text(text=L.g("attach_folder"), icon="msg_folder", subtext=plugin._get_current_folder_display(), on_click=plugin._pick_attach_folder, link_alias="spy_attach_folder"),
+            Text(text=L.g("attach_folder_reset"), icon="msg_reset", on_click=plugin._reset_attach_folder, link_alias="spy_attach_folder_reset"),
+            Selector(key="max_folder_size", text=L.g("max_folder"), default=2, items=["300 MB", "1 GB", "2 GB", "4 GB", "8 GB", "16 GB", "No limit"], link_alias="spy_max_folder"),
+            Selector(key="auto_cleanup_age", text=L.g("auto_cleanup"), default=0, items=["Off", "3 days", "7 days", "14 days", "30 days", "90 days"], link_alias="spy_auto_cleanup"),
+            Text(text=L.g("browse_attachments"), icon="msg_gallery", subtext=L.g("browse_attachments_sub"), on_click=plugin._show_browse_attachments, link_alias="spy_browse_attachments"),
+            Text(text=L.g("import_from_file"), icon="msg_import", subtext=L.g("import_from_file_sub"), on_click=plugin._import_from_file_picker, link_alias="spy_import_file"),
+            Text(text=L.g("wipe_storage"), icon="msg_clear", on_click=plugin._wipe_vault, link_alias="spy_wipe_storage"),
             Divider(),
             Header(text=L.g("tracker")),
-            Switch(key="presence_track", text=L.g("save_online"), default=False, subtext=L.g("save_online_sub"), on_change=self._on_presence_track_change),
-            Switch(key="save_last_online", text=L.g("save_last_seen"), default=False, subtext=L.g("save_last_seen_sub")),
-            Switch(key="presence_only_hidden", text=L.g("only_hidden"), default=True),
-            Selector(key="presence_decay", text=L.g("decay"), default=1, items=["30s", "45s", "60s", "120s"]),
-            Text(text=L.g("tracked_users"), icon="msg_contacts", on_click=lambda v: plugin._show_presence_tracked()),
-            Text(text=L.g("journal"), icon="msg_log", on_click=lambda v: plugin._show_presence_log()),
-            Text(text=L.g("wipe_tracker"), icon="msg_clear", on_click=lambda v: self._wipe_presence()),
+            Switch(key="presence_track", text=L.g("save_online"), default=False, subtext=L.g("save_online_sub"), on_change=self._on_presence_track_change, link_alias="spy_presence_track"),
+            Switch(key="save_last_online", text=L.g("save_last_seen"), default=False, subtext=L.g("save_last_seen_sub"), link_alias="spy_last_online"),
+            Switch(key="presence_only_hidden", text=L.g("only_hidden"), default=True, link_alias="spy_only_hidden"),
+            Selector(key="presence_decay", text=L.g("decay"), default=1, items=["30s", "45s", "60s", "120s"], link_alias="spy_decay"),
+            Text(text=L.g("tracked_users"), icon="msg_contacts", on_click=lambda v: plugin._show_presence_tracked(), link_alias="spy_tracked_users"),
+            Text(text=L.g("journal"), icon="msg_log", on_click=lambda v: plugin._show_presence_log(), link_alias="spy_journal"),
+            Text(text=L.g("wipe_tracker"), icon="msg_clear", on_click=lambda v: self._wipe_presence(), link_alias="spy_wipe_tracker"),
         ]
         return items
 
@@ -8818,20 +8905,20 @@ class MaxReExteraPlugin(BasePlugin):
         self._load_filters()
         items = [
             Header(text=L.g("enable_filters")),
-            Switch(key="filters_enabled", text=L.g("enable_features"), default=True, subtext=L.g("enable_features_sub"), icon="msg_search", on_change=lambda v: self._on_tab_toggle("filters_enabled", v)),
-            Text(text="Теневой бан (Shadowban)", icon="msg_block", subtext="Управление списком скрытых пользователей", on_click=lambda v: self._show_shadowban_manager()),
-            Text(text="Regex-фильтры (быстрый список)", icon="msg_search", subtext="Фильтрация сообщений по регулярным выражениям", on_click=lambda v: self._show_rx_manager()),
+            Switch(key="filters_enabled", text=L.g("enable_features"), default=True, subtext=L.g("enable_features_sub"), icon="msg_search", on_change=lambda v: self._on_tab_toggle("filters_enabled", v), link_alias="filters_enabled"),
+            Text(text=L.g("shadowban"), icon="msg_block", subtext=L.g("shadowban_row_sub"), on_click=lambda v: self._show_shadowban_manager(), link_alias="filters_shadowban"),
+            Text(text=L.g("regex_quick"), icon="msg_search", subtext=L.g("regex_quick_sub"), on_click=lambda v: self._show_rx_manager(), link_alias="filters_regex_quick"),
             Divider(),
         ]
         if not self._tab_on("filters_enabled"):
             return items
         items += [
-            Text(text=L.g("regex_patterns"), icon="msg_search", on_click=self._show_rx_manager),
+            Text(text=L.g("regex_patterns"), icon="msg_search", on_click=self._show_rx_manager, link_alias="filters_patterns"),
             Divider(),
-            Text(text=L.g("add_filter"), icon="msg_add", create_sub_fragment=self._fe_fragment(-1)),
+            Text(text=L.g("add_filter"), icon="msg_add", create_sub_fragment=self._fe_fragment(-1), link_alias="filters_add"),
         ]
         for i, f in enumerate(self._filters):
-            items.append(Text(text=f"{'[+]' if f.get('enabled',True) else '[-]'} {f.get('expression','')}", subtext=L.g("inverted") if f.get("inverted") else None, create_sub_fragment=self._fe_fragment(i)))
+            items.append(Text(text=f"{'[+]' if f.get('enabled',True) else '[-]'} {f.get('expression','')}", subtext=L.g("inverted") if f.get("inverted") else None, create_sub_fragment=self._fe_fragment(i), link_alias="filter_%d" % i))
         return items
 
     def _fe_fragment(self, idx):
@@ -8910,16 +8997,16 @@ class MaxReExteraPlugin(BasePlugin):
                     pass
             items = [
                 Header(text=L.g("new_filter") if is_new else L.g("editor")),
-                Input(key=k_expr, text=L.g("regex_expr"), default=f.get("expression", "")),
-                Switch(key=k_on, text=L.g("enabled"), default=f.get("enabled", True)),
-                Switch(key=k_ic, text=L.g("case_insensitive"), default=f.get("ignore_case", True)),
-                Switch(key=k_inv, text=L.g("inverted"), default=f.get("inverted", False), subtext=L.g("inverted_sub")),
-                Switch(key=k_cc, text=L.g("channels_only"), default=f.get("channels_only", False), subtext=L.g("channels_only_sub")),
+                Input(key=k_expr, text=L.g("regex_expr"), default=f.get("expression", ""), link_alias=k_expr),
+                Switch(key=k_on, text=L.g("enabled"), default=f.get("enabled", True), link_alias=k_on),
+                Switch(key=k_ic, text=L.g("case_insensitive"), default=f.get("ignore_case", True), link_alias=k_ic),
+                Switch(key=k_inv, text=L.g("inverted"), default=f.get("inverted", False), subtext=L.g("inverted_sub"), link_alias=k_inv),
+                Switch(key=k_cc, text=L.g("channels_only"), default=f.get("channels_only", False), subtext=L.g("channels_only_sub"), link_alias=k_cc),
                 Divider(),
-                Text(text=L.g("save"), icon="msg_check", on_click=save),
+                Text(text=L.g("save"), icon="msg_check", on_click=save, link_alias=key + "_save"),
             ]
             if not is_new:
-                items.append(Text(text=L.g("delete"), icon="msg_delete", on_click=delete))
+                items.append(Text(text=L.g("delete"), icon="msg_delete", on_click=delete, link_alias=key + "_delete"))
             return items
         except Exception:
             return []
@@ -8930,18 +9017,18 @@ class MaxReExteraPlugin(BasePlugin):
             return items
         return items + [
             Header(text=L.g("hacker")),
-            Switch(key="hide_ads", text=L.g("hide_ads"), default=True),
-            Switch(key="hide_feed_ads", text=L.g("hide_feed_ads"), default=True, subtext=L.g("hide_feed_ads_sub")),
-            Switch(key="no_forward_limit", text=L.g("no_fwd_limit"), default=False, subtext=L.g("no_fwd_limit_sub")),
-            Switch(key="fake_premium", text=L.g("local_premium"), default=False, subtext=L.g("local_premium_sub")),
-            Switch(key="keep_once", text=L.g("once_media"), default=False, subtext=L.g("once_media_sub")),
+            Switch(key="hide_ads", text=L.g("hide_ads"), default=True, link_alias="hacker_hide_ads"),
+            Switch(key="hide_feed_ads", text=L.g("hide_feed_ads"), default=True, subtext=L.g("hide_feed_ads_sub"), link_alias="hacker_hide_feed_ads"),
+            Switch(key="no_forward_limit", text=L.g("no_fwd_limit"), default=False, subtext=L.g("no_fwd_limit_sub"), link_alias="hacker_no_fwd_limit"),
+            Switch(key="fake_premium", text=L.g("local_premium"), default=False, subtext=L.g("local_premium_sub"), link_alias="hacker_fake_premium"),
+            Switch(key="keep_once", text=L.g("once_media"), default=False, subtext=L.g("once_media_sub"), link_alias="hacker_keep_once"),
             Divider(),
             Header(text=L.g("bypass")),
-            Switch(key="allow_screenshots", text=L.g("screenshots"), default=False, subtext=L.g("screenshots_sub")),
-            Switch(key="bypass_noforward", text=L.g("noforwards"), default=False, subtext="Обход запрета копирования и пересылки"),
-            Switch(key="gif_reuploader", text="Перезаливка GIF (Gif Reuploader)", default=True, subtext="Сохранение защищенных GIF в Избранное без ограничений"),
-            Selector(key="fwd_mode", text=L.g("fwd_mode"), default=0, items=[L.g("fwd_copy"), L.g("fwd_try")]),
-            Switch(key="bypass_story_save", text=L.g("stories_bypass"), default=False, subtext=L.g("stories_bypass_sub")),
+            Switch(key="allow_screenshots", text=L.g("screenshots"), default=False, subtext=L.g("screenshots_sub"), link_alias="hacker_screenshots"),
+            Switch(key="bypass_noforward", text=L.g("noforwards"), default=False, subtext=L.g("noforward_sub"), link_alias="hacker_noforward"),
+            Switch(key="gif_reuploader", text=L.g("gif_reuploader"), default=True, subtext=L.g("gif_reuploader_sub"), link_alias="hacker_gif_reuploader"),
+            Selector(key="fwd_mode", text=L.g("fwd_mode"), default=0, items=[L.g("fwd_copy"), L.g("fwd_try")], link_alias="hacker_fwd_mode"),
+            Switch(key="bypass_story_save", text=L.g("stories_bypass"), default=False, subtext=L.g("stories_bypass_sub"), link_alias="hacker_story_save"),
         ]
 
     def _show_shadowban_manager(self):
@@ -8949,34 +9036,131 @@ class MaxReExteraPlugin(BasePlugin):
         def _ui():
             try:
                 from com.maxplugins.sample import Main as JMain
-                ctx = ApplicationLoader.applicationContext
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
                 entries = JMain.ShadowbanStore.all()
-                b = AlertDialogBuilder(LaunchActivity.getLastFragment().getParentActivity())
-                b.set_title("Теневой бан")
-                if not entries or entries.isEmpty():
-                    b.set_message("Список теневого бана пуст.\n\nДобавить пользователя можно из меню профиля (три точки в профиле -> В теневой бан) или по ID ниже.")
-                else:
-                    lines = []
+                b = AlertDialogBuilder(act)
+                b.set_title(L.g("shadowban"))
+                uids = []
+                if entries and not entries.isEmpty():
+                    items = []
                     for i in range(entries.size()):
                         e = entries.get(i)
-                        lines.append(f"• ID {e.userId} (диалог: {'скрыт' if e.hideDialog else 'виден'}, группы: {'скрыты' if e.hideInGroups else 'видны'})")
-                    b.set_message("\n".join(lines))
-                b.set_positive_button("Добавить ID", lambda dlg, w: plugin._prompt_add_shadowban())
-                if entries and not entries.isEmpty():
-                    b.set_negative_button("Очистить", lambda dlg, w: JMain.ShadowbanStore.map.clear())
-                b.set_neutral_button("Закрыть", None)
+                        uids.append(int(e.userId))
+                        d_st = L.g("sb_dialog_hidden") if e.hideDialog else L.g("sb_dialog_visible")
+                        g_st = L.g("sb_groups_hidden") if e.hideInGroups else L.g("sb_groups_visible")
+                        items.append(f"{plugin._presence_user_name(int(e.userId))}\n{d_st} · {g_st}")
+                    def on_pick(dlg, which):
+                        dlg.dismiss()
+                        if 0 <= which < len(uids):
+                            run_on_ui_thread(lambda: plugin._shadowban_item_actions(uids[which]))
+                    b.set_items(items, on_pick)
+                    def on_clear(dlg, w):
+                        dlg.dismiss()
+                        def confirm():
+                            f2 = get_last_fragment()
+                            a2 = f2.getParentActivity() if f2 else None
+                            if not a2:
+                                return
+                            d2 = AlertDialogBuilder(a2)
+                            d2.set_title(L.g("shadowban"))
+                            d2.set_message(L.g("clear_list_confirm"))
+                            def do_clear(dd, w2):
+                                dd.dismiss()
+                                for u in uids:
+                                    JMain.ShadowbanStore.remove(jlong(u))
+                                BulletinHelper.show_info(L.g("cleared"))
+                                run_on_ui_thread(plugin._show_shadowban_manager)
+                            d2.set_positive_button(L.g("yes"), do_clear)
+                            d2.set_negative_button(L.g("no"), lambda dd, w2: (dd.dismiss(), run_on_ui_thread(plugin._show_shadowban_manager)))
+                            d2.show()
+                        run_on_ui_thread(confirm)
+                    b.set_negative_button(L.g("read_wl_clear_all"), on_clear)
+                else:
+                    b.set_message(L.g("shadowban_empty"))
+                b.set_positive_button(L.g("add"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._shadowban_add_menu)))
+                b.set_neutral_button(L.g("close"), lambda dlg, w: dlg.dismiss())
                 b.show()
             except Exception as e:
                 log(f"[MAX] shadowban manager error: {e}")
+        run_on_ui_thread(_ui)
+
+    def _shadowban_item_actions(self, uid):
+        plugin = self
+        def _ui():
+            try:
+                from com.maxplugins.sample import Main as JMain
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
+                e = JMain.ShadowbanStore.map.get(jlong(uid))
+                hd = bool(e.hideDialog) if e is not None else True
+                hg = bool(e.hideInGroups) if e is not None else True
+                items = [
+                    f"{L.g('shadowban_hide_dialog')}: {'✓' if hd else '✗'}",
+                    f"{L.g('shadowban_hide_groups')}: {'✓' if hg else '✗'}",
+                    L.g("shadowban_remove"),
+                ]
+                def on_pick(dlg, which):
+                    dlg.dismiss()
+                    if which == 0:
+                        JMain.ShadowbanStore.add(jlong(uid), not hd, hg)
+                    elif which == 1:
+                        JMain.ShadowbanStore.add(jlong(uid), hd, not hg)
+                    elif which == 2:
+                        JMain.ShadowbanStore.remove(jlong(uid))
+                        BulletinHelper.show_info(L.g("shadowban_removed"))
+                    run_on_ui_thread(plugin._show_shadowban_manager)
+                b = AlertDialogBuilder(act)
+                b.set_title(plugin._presence_user_name(uid))
+                b.set_items(items, on_pick)
+                b.set_negative_button(L.g("back"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._show_shadowban_manager)))
+                b.show()
+            except Exception as e:
+                log(f"[MAX] shadowban item error: {e}")
+        run_on_ui_thread(_ui)
+
+    def _shadowban_add_menu(self):
+        plugin = self
+        def _ui():
+            try:
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
+                def on_picked(ids):
+                    from com.maxplugins.sample import Main as JMain
+                    added = 0
+                    for uid in ids:
+                        if uid > 0:
+                            JMain.ShadowbanStore.add(jlong(uid), True, True)
+                            added += 1
+                    if added:
+                        BulletinHelper.show_info(f"{L.g('shadowban_added')}: {added}")
+                    run_on_ui_thread(plugin._show_shadowban_manager)
+                b = AlertDialogBuilder(act)
+                b.set_title(L.g("shadowban"))
+                b.set_items([L.g("pick_chat"), L.g("by_id")], lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(lambda: plugin._pick_chats(on_picked) if w == 0 else plugin._prompt_add_shadowban())))
+                b.set_negative_button(L.g("back"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._show_shadowban_manager)))
+                b.show()
+            except Exception as e:
+                log(f"[MAX] shadowban add menu error: {e}")
         run_on_ui_thread(_ui)
 
     def _prompt_add_shadowban(self):
         plugin = self
         def _ui():
             try:
-                b = AlertDialogBuilder(LaunchActivity.getLastFragment().getParentActivity())
-                b.set_title("Добавить в теневой бан")
-                b.set_message("Введите User ID:")
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
+                b = AlertDialogBuilder(act)
+                b.set_title(L.g("shadowban"))
+                b.set_message(L.g("enter_user_id"))
                 b.set_input_text("", "User ID")
                 def _on_save(val):
                     try:
@@ -8984,11 +9168,14 @@ class MaxReExteraPlugin(BasePlugin):
                         if uid > 0:
                             from com.maxplugins.sample import Main as JMain
                             JMain.ShadowbanStore.add(jlong(uid), True, True)
-                            BulletinHelper.show_success(f"Пользователь {uid} добавлен в теневой бан")
-                    except Exception as ex:
-                        log(f"[MAX] add shadowban error: {ex}")
-                b.set_positive_button("Сохранить", lambda dlg, w: _on_save(b.get_input_text()))
-                b.set_negative_button("Отмена", None)
+                            BulletinHelper.show_success(L.g("shadowban_added"))
+                            run_on_ui_thread(plugin._show_shadowban_manager)
+                        else:
+                            BulletinHelper.show_error(L.g("invalid_id"))
+                    except Exception:
+                        BulletinHelper.show_error(L.g("invalid_id"))
+                b.set_positive_button(L.g("save"), lambda dlg, w: (dlg.dismiss(), _on_save(b.get_input_text())))
+                b.set_negative_button(L.g("cancel"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._show_shadowban_manager)))
                 b.show()
             except Exception as e:
                 log(f"[MAX] prompt shadowban error: {e}")
@@ -8999,44 +9186,128 @@ class MaxReExteraPlugin(BasePlugin):
         def _ui():
             try:
                 from com.maxplugins.sample import Main as JMain
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
                 entries = JMain.ExclusionsStore.all()
-                b = AlertDialogBuilder(LaunchActivity.getLastFragment().getParentActivity())
-                b.set_title("Исключения чатов")
-                if not entries or entries.isEmpty():
-                    b.set_message("Список исключений пуст.\n\nВы можете настроить чтение и тайпинг для конкретного чата по ID ниже.")
-                else:
-                    mode_names = {0: "По умолчанию", 1: "Всегда", 2: "Никогда"}
-                    lines = []
+                mode_names = {0: L.g("mode_default"), 1: L.g("mode_always"), 2: L.g("mode_never")}
+                b = AlertDialogBuilder(act)
+                b.set_title(L.g("exclusions"))
+                dids = []
+                if entries and not entries.isEmpty():
+                    items = []
                     for i in range(entries.size()):
                         e = entries.get(i)
-                        lines.append(f"• Чат {e.dialogId}: чтение={mode_names.get(e.reading, '?')}, тайпинг={mode_names.get(e.typing, '?')}")
-                    b.set_message("\n".join(lines))
-                b.set_positive_button("Добавить", lambda dlg, w: plugin._prompt_add_exclusion())
-                if entries and not entries.isEmpty():
-                    b.set_negative_button("Очистить", lambda dlg, w: JMain.ExclusionsStore.map.clear())
-                b.set_neutral_button("Закрыть", None)
+                        dids.append(int(e.dialogId))
+                        r = mode_names.get(int(e.reading), "?")
+                        t = mode_names.get(int(e.typing), "?")
+                        items.append(f"{plugin._chat_display_name(int(e.dialogId))}\n{L.g('exclusions_reading')}: {r} · {L.g('exclusions_typing')}: {t}")
+                    def on_pick(dlg, which):
+                        dlg.dismiss()
+                        if 0 <= which < len(dids):
+                            run_on_ui_thread(lambda: plugin._exclusion_item_actions(dids[which]))
+                    b.set_items(items, on_pick)
+                    def on_clear(dlg, w):
+                        dlg.dismiss()
+                        def confirm():
+                            f2 = get_last_fragment()
+                            a2 = f2.getParentActivity() if f2 else None
+                            if not a2:
+                                return
+                            d2 = AlertDialogBuilder(a2)
+                            d2.set_title(L.g("exclusions"))
+                            d2.set_message(L.g("clear_list_confirm"))
+                            def do_clear(dd, w2):
+                                dd.dismiss()
+                                for d in dids:
+                                    JMain.ExclusionsStore.remove(jlong(d))
+                                BulletinHelper.show_info(L.g("cleared"))
+                                run_on_ui_thread(plugin._show_exclusions_manager)
+                            d2.set_positive_button(L.g("yes"), do_clear)
+                            d2.set_negative_button(L.g("no"), lambda dd, w2: (dd.dismiss(), run_on_ui_thread(plugin._show_exclusions_manager)))
+                            d2.show()
+                        run_on_ui_thread(confirm)
+                    b.set_negative_button(L.g("read_wl_clear_all"), on_clear)
+                else:
+                    b.set_message(L.g("exclusions_empty"))
+                b.set_positive_button(L.g("add"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._exclusion_add_menu)))
+                b.set_neutral_button(L.g("close"), lambda dlg, w: dlg.dismiss())
                 b.show()
             except Exception as e:
                 log(f"[MAX] exclusions manager error: {e}")
+        run_on_ui_thread(_ui)
+
+    def _exclusion_item_actions(self, did):
+        plugin = self
+        def _ui():
+            try:
+                from com.maxplugins.sample import Main as JMain
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
+                items = [L.g("edit"), L.g("delete")]
+                def on_pick(dlg, which):
+                    dlg.dismiss()
+                    if which == 0:
+                        run_on_ui_thread(lambda: plugin._prompt_configure_exclusion_modes(did))
+                    elif which == 1:
+                        JMain.ExclusionsStore.remove(jlong(did))
+                        BulletinHelper.show_info(L.g("exclusions_removed"))
+                        run_on_ui_thread(plugin._show_exclusions_manager)
+                b = AlertDialogBuilder(act)
+                b.set_title(plugin._chat_display_name(did))
+                b.set_items(items, on_pick)
+                b.set_negative_button(L.g("back"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._show_exclusions_manager)))
+                b.show()
+            except Exception as e:
+                log(f"[MAX] exclusion item error: {e}")
+        run_on_ui_thread(_ui)
+
+    def _exclusion_add_menu(self):
+        plugin = self
+        def _ui():
+            try:
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
+                def on_picked(ids):
+                    if ids:
+                        run_on_ui_thread(lambda: plugin._prompt_configure_exclusion_modes(ids[0]))
+                b = AlertDialogBuilder(act)
+                b.set_title(L.g("exclusions"))
+                b.set_items([L.g("pick_chat"), L.g("by_id")], lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(lambda: plugin._pick_chats(on_picked) if w == 0 else plugin._prompt_add_exclusion())))
+                b.set_negative_button(L.g("back"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._show_exclusions_manager)))
+                b.show()
+            except Exception as e:
+                log(f"[MAX] exclusion add menu error: {e}")
         run_on_ui_thread(_ui)
 
     def _prompt_add_exclusion(self):
         plugin = self
         def _ui():
             try:
-                b = AlertDialogBuilder(LaunchActivity.getLastFragment().getParentActivity())
-                b.set_title("Настройка исключения")
-                b.set_message("Введите Dialog/Chat ID:")
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
+                b = AlertDialogBuilder(act)
+                b.set_title(L.g("exclusions"))
+                b.set_message(L.g("enter_dialog_id"))
                 b.set_input_text("", "Dialog ID")
                 def _on_save(val):
                     try:
                         did = int(str(val).strip())
                         if did != 0:
-                            plugin._prompt_configure_exclusion_modes(did)
-                    except Exception as ex:
-                        log(f"[MAX] add exclusion error: {ex}")
-                b.set_positive_button("Далее", lambda dlg, w: _on_save(b.get_input_text()))
-                b.set_negative_button("Отмена", None)
+                            run_on_ui_thread(lambda: plugin._prompt_configure_exclusion_modes(did))
+                        else:
+                            BulletinHelper.show_error(L.g("invalid_id"))
+                    except Exception:
+                        BulletinHelper.show_error(L.g("invalid_id"))
+                b.set_positive_button(L.g("add"), lambda dlg, w: (dlg.dismiss(), _on_save(b.get_input_text())))
+                b.set_negative_button(L.g("cancel"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._show_exclusions_manager)))
                 b.show()
             except Exception as e:
                 log(f"[MAX] prompt exclusion error: {e}")
@@ -9047,12 +9318,16 @@ class MaxReExteraPlugin(BasePlugin):
         def _ui():
             try:
                 from com.maxplugins.sample import Main as JMain
-                items = ["По умолчанию (как в Ghost)", "Всегда отправлять чтение (белый список)", "Никогда не читать (скрытно)"]
-                b = AlertDialogBuilder(LaunchActivity.getLastFragment().getParentActivity())
-                b.set_title(f"Чтение для чата {did}")
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
+                items = [L.g("reading_default"), L.g("reading_always"), L.g("reading_never")]
+                b = AlertDialogBuilder(act)
+                b.set_title(f"{L.g('reading_for')} {did}")
                 curr_r = JMain.ExclusionsStore.getMode(jlong(did), True)
-                b.set_single_choice_items(items, curr_r, lambda dlg, which: plugin._prompt_configure_typing_mode(did, which))
-                b.set_negative_button("Отмена", None)
+                b.set_single_choice_items(items, curr_r, lambda dlg, which: (dlg.dismiss(), run_on_ui_thread(lambda: plugin._prompt_configure_typing_mode(did, which))))
+                b.set_negative_button(L.g("cancel"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._show_exclusions_manager)))
                 b.show()
             except Exception as e:
                 log(f"[MAX] exclusion reading dlg: {e}")
@@ -9063,15 +9338,21 @@ class MaxReExteraPlugin(BasePlugin):
         def _ui():
             try:
                 from com.maxplugins.sample import Main as JMain
-                items = ["По умолчанию (как в Ghost)", "Всегда отправлять тайпинг", "Никогда не показывать тайпинг"]
-                b = AlertDialogBuilder(LaunchActivity.getLastFragment().getParentActivity())
-                b.set_title(f"Тайпинг для чата {did}")
+                frag = get_last_fragment()
+                act = frag.getParentActivity() if frag else None
+                if not act:
+                    return
+                items = [L.g("typing_default"), L.g("typing_always"), L.g("typing_never")]
+                b = AlertDialogBuilder(act)
+                b.set_title(f"{L.g('typing_for')} {did}")
                 curr_t = JMain.ExclusionsStore.getMode(jlong(did), False)
                 def _on_select(dlg, which):
+                    dlg.dismiss()
                     JMain.ExclusionsStore.set(jlong(did), reading_mode, which)
-                    BulletinHelper.show_success(f"Исключение для чата {did} сохранено")
+                    BulletinHelper.show_success(L.g("exclusions_saved"))
+                    run_on_ui_thread(plugin._show_exclusions_manager)
                 b.set_single_choice_items(items, curr_t, _on_select)
-                b.set_negative_button("Отмена", None)
+                b.set_negative_button(L.g("cancel"), lambda dlg, w: (dlg.dismiss(), run_on_ui_thread(plugin._show_exclusions_manager)))
                 b.show()
             except Exception as e:
                 log(f"[MAX] exclusion typing dlg: {e}")
@@ -9115,31 +9396,31 @@ class MaxReExteraPlugin(BasePlugin):
                 return 0
         return [
             Header(text=L.g("info")),
-            Text(text=L.g("author_channel"), icon="msg_channel", on_click=_open_channel),
-            Text(text=L.g("credits"), icon="msg_fave", create_sub_fragment=lambda: [
+            Text(text=L.g("author_channel"), icon="msg_channel", on_click=_open_channel, link_alias="misc_channel"),
+            Text(text=L.g("credits"), icon="msg_fave", link_alias="misc_credits", create_sub_fragment=lambda: [
                 Header(text=L.g("credits")),
-                Text(text="@exteraOwner", subtext=L.g("cr_extera")),
-                Text(text="@bleizix", subtext=L.g("cr_bleizix")),
-                Text(text="@shiawasez", subtext=L.g("cr_shiawasez")),
-                Text(text="@ThisisGame_tig", subtext=L.g("cr_thisisgame")),
-                Text(text="@summering", subtext=L.g("cr_summering")),
-                Text(text="@homewatcha", subtext=L.g("cr_testing")),
-                Text(text="@Jebebr", subtext=L.g("cr_testing")),
-                Text(text="@AdzusaNakano", subtext=L.g("cr_testing")),
-                Text(text="@Farewalls", subtext=L.g("cr_testing")),
-                Text(text="@dyr0v_ukraine", subtext=L.g("cr_testing")),
-                Text(text="@ablipo", subtext=L.g("cr_testing")),
-                Text(text="@AlexeiCrystal", subtext=L.g("cr_alexeicrystal")),
-                Text(text="@kvuco", subtext=L.g("cr_kvuco")),
-                Text(text=L.g("cr_ai_title"), subtext=L.g("cr_ai")),
+                Text(text="@exteraOwner", subtext=L.g("cr_extera"), link_alias="cr_extera"),
+                Text(text="@bleizix", subtext=L.g("cr_bleizix"), link_alias="cr_bleizix"),
+                Text(text="@shiawasez", subtext=L.g("cr_shiawasez"), link_alias="cr_shiawasez"),
+                Text(text="@ThisisGame_tig", subtext=L.g("cr_thisisgame"), link_alias="cr_thisisgame"),
+                Text(text="@summering", subtext=L.g("cr_summering"), link_alias="cr_summering"),
+                Text(text="@homewatcha", subtext=L.g("cr_testing"), link_alias="cr_homewatcha"),
+                Text(text="@Jebebr", subtext=L.g("cr_testing"), link_alias="cr_jebebr"),
+                Text(text="@AdzusaNakano", subtext=L.g("cr_testing"), link_alias="cr_adzusa"),
+                Text(text="@Farewalls", subtext=L.g("cr_testing"), link_alias="cr_farewalls"),
+                Text(text="@dyr0v_ukraine", subtext=L.g("cr_testing"), link_alias="cr_dyr0v"),
+                Text(text="@ablipo", subtext=L.g("cr_testing"), link_alias="cr_ablipo"),
+                Text(text="@AlexeiCrystal", subtext=L.g("cr_alexeicrystal"), link_alias="cr_alexeicrystal"),
+                Text(text="@kvuco", subtext=L.g("cr_kvuco"), link_alias="cr_kvuco"),
+                Text(text=L.g("cr_ai_title"), subtext=L.g("cr_ai"), link_alias="cr_ai"),
             ]),
             Divider(),
             Header(text=L.g("params")),
-            Switch(key="show_in_settings", text=L.g("show_in_settings"), default=True, subtext=L.g("show_in_settings_sub"), icon="msg_settings", on_change=lambda v: plugin._on_show_in_settings_change(v)),
-            Selector(key="plugin_lang", text=L.g("language"), default=_cur_lang_idx(), items=_lang_items, icon="msg_language", on_change=_on_lang_change),
+            Switch(key="show_in_settings", text=L.g("show_in_settings"), default=True, subtext=L.g("show_in_settings_sub"), icon="msg_settings", on_change=lambda v: plugin._on_show_in_settings_change(v), link_alias="misc_show_in_settings"),
+            Selector(key="plugin_lang", text=L.g("language"), default=_cur_lang_idx(), items=_lang_items, icon="msg_language", on_change=_on_lang_change, link_alias="misc_language"),
             Divider(),
             Header(text=L.g("backup")),
-            Text(text=L.g("export_to_saved"), icon="msg_saved", subtext=L.g("export_to_saved_sub"), on_click=plugin._export_settings),
+            Text(text=L.g("export_to_saved"), icon="msg_saved", subtext=L.g("export_to_saved_sub"), on_click=plugin._export_settings, link_alias="misc_export"),
         ]
 
 
