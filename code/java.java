@@ -597,9 +597,9 @@ public class Main {
         }
     }
 
-    public static final String VERSION = "1.2.23";
+    public static final String VERSION = "1.2.24";
 
-    public static final int VERSION_CODE = 143;
+    public static final int VERSION_CODE = 144;
 
     private static Config cfg;
 
