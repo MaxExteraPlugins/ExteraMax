@@ -259,6 +259,9 @@ public class Main {
         if (db != null) {
             db.saveReadDate(did, mid, readDate);
         }
+        if (did > 0) {
+            presenceRecord(did, readDate);
+        }
     }
 
     public static int getReadDate(long did, int mid) {
@@ -597,9 +600,9 @@ public class Main {
         }
     }
 
-    public static final String VERSION = "1.2.25";
+    public static final String VERSION = "1.2.26";
 
-    public static final int VERSION_CODE = 145;
+    public static final int VERSION_CODE = 146;
 
     private static Config cfg;
 
@@ -6186,6 +6189,17 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         presenceDirty = true;
 
+        try {
+            AndroidUtilities.runOnUIThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        NotificationCenter.getInstance(UserConfig.selectedAccount).postNotificationName(NotificationCenter.updateInterfaces, 4);
+                    } catch (Throwable ignored) {}
+                }
+            });
+        } catch (Throwable ignored) {}
+
     }
 
     // Запись tr("когда пользователь был в сети","when user was online") — только если время свежее уже
@@ -10559,6 +10573,9 @@ private void go() throws Exception {
                                         TLRPC.Peer peer = (TLRPC.Peer) Main.gf(arg, "peer");
                                         long did = peer != null ? (peer.user_id != 0 ? peer.user_id : (peer.chat_id != 0 ? -peer.chat_id : -1000000000000L - peer.channel_id)) : 0;
                                         int maxId = ((Number) Main.gf(arg, "max_id")).intValue();
+                                        if (did > 0) {
+                                            Main.presenceRecord(did, now);
+                                        }
                                         if (did != 0 && maxId > 0) {
                                             Main.saveReadDate(did, maxId, (int) now);
                                         }
@@ -10701,6 +10718,59 @@ private void go() throws Exception {
 
                                         }
 
+                                    } else if ("TL_updateReadHistoryOutbox".equals(simpleName)) {
+                                        try {
+                                            TLRPC.Peer peer = (TLRPC.Peer) Main.gf(next, "peer");
+                                            long did = peer != null ? (peer.user_id != 0 ? peer.user_id : (peer.chat_id != 0 ? -peer.chat_id : -1000000000000L - peer.channel_id)) : 0;
+                                            int maxId = ((Number) Main.gf(next, "max_id")).intValue();
+                                            if (did > 0) {
+                                                Main.presenceRecord(did, now);
+                                            }
+                                            if (did != 0 && maxId > 0) {
+                                                Main.saveReadDate(did, maxId, (int) now);
+                                            }
+                                        } catch (Exception e) {}
+                                    } else if ("TL_updateReadChannelOutbox".equals(simpleName)) {
+                                        try {
+                                            long channelId = ((Number) Main.gf(next, "channel_id")).longValue();
+                                            int maxId = ((Number) Main.gf(next, "max_id")).intValue();
+                                            if (channelId != 0 && maxId > 0) {
+                                                Main.saveReadDate(-1000000000000L - channelId, maxId, (int) now);
+                                            }
+                                        } catch (Exception e) {}
+                                    } else if ("TL_updateEditMessage".equals(simpleName) || "TL_updateEditChannelMessage".equals(simpleName)) {
+                                        try {
+                                            Object msg = Main.gf(next, "message");
+                                            if (msg instanceof TLRPC.Message) {
+                                                TLRPC.Message m = (TLRPC.Message) msg;
+                                                if (!m.out) {
+                                                    long uid = 0;
+                                                    if (m.from_id instanceof TLRPC.TL_peerUser) {
+                                                        uid = m.from_id.user_id;
+                                                    } else if (m.peer_id instanceof TLRPC.TL_peerUser) {
+                                                        uid = m.peer_id.user_id;
+                                                    }
+                                                    if (uid > 0) {
+                                                        Main.presenceRecord(uid, m.edit_date > 0 ? m.edit_date : (m.date > 0 ? m.date : now));
+                                                    }
+                                                }
+                                            }
+                                        } catch (Exception e) {}
+                                    } else if ("TL_updateBotMessageReaction".equals(simpleName)) {
+                                        try {
+                                            TLRPC.Peer peer = (TLRPC.Peer) Main.gf(next, "peer");
+                                            long uid = 0;
+                                            Object actor = Main.gf(next, "actor");
+                                            if (actor instanceof TLRPC.Peer) {
+                                                uid = ((TLRPC.Peer) actor).user_id;
+                                            } else if (peer != null && peer.user_id > 0) {
+                                                uid = peer.user_id;
+                                            }
+                                            int date = ((Number) Main.gf(next, "date")).intValue();
+                                            if (uid > 0) {
+                                                Main.presenceRecord(uid, date > 0 ? date : now);
+                                            }
+                                        } catch (Exception e) {}
                                     } else if ("TL_updateNewMessage".equals(simpleName) || "TL_updateNewChannelMessage".equals(simpleName)) {
 
                                         try {
@@ -10721,10 +10791,16 @@ private void go() throws Exception {
 
                                                 }
 
-                                                if (!out && m.from_id instanceof TLRPC.TL_peerUser && m.from_id.user_id > 0) {
-
-                                                    Main.presenceRecord(m.from_id.user_id, m.date > 0 ? m.date : now);
-
+                                                if (!out) {
+                                                    long uid = 0;
+                                                    if (m.from_id instanceof TLRPC.TL_peerUser && m.from_id.user_id > 0) {
+                                                        uid = m.from_id.user_id;
+                                                    } else if (m.peer_id instanceof TLRPC.TL_peerUser && m.peer_id.user_id > 0) {
+                                                        uid = m.peer_id.user_id;
+                                                    }
+                                                    if (uid > 0) {
+                                                        Main.presenceRecord(uid, m.date > 0 ? m.date : now);
+                                                    }
                                                 }
 
                                             }
@@ -14379,63 +14455,72 @@ private void go() throws Exception {
 
         private void hkFormatUserStatus() {
             try {
-                Method method = LocaleController.class.getDeclaredMethod("formatUserStatus", Integer.TYPE, TLRPC.User.class, boolean[].class, boolean[].class, boolean[].class);
-                method.setAccessible(true);
-                this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() {
-                    @Override
-                    public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
-                        try {
-                            if (!Main.cfg.b("save_last_online", false)) {
-                                return;
-                            }
-                            if (methodHookParam.args == null || methodHookParam.args.length < 2 || !(methodHookParam.args[1] instanceof TLRPC.User)) {
-                                return;
-                            }
-                            TLRPC.User user = (TLRPC.User) methodHookParam.args[1];
-                            if (user == null || user.status == null) {
-                                return;
-                            }
-                            boolean isHidden = (user.status instanceof TLRPC.TL_userStatusRecently)
-                                    || (user.status instanceof TLRPC.TL_userStatusLastWeek)
-                                    || (user.status instanceof TLRPC.TL_userStatusLastMonth)
-                                    || (user.status instanceof TLRPC.TL_userStatusEmpty);
-                            if (!isHidden) {
-                                return;
-                            }
-                            Long ts = presenceLastSeen.get(Long.valueOf(user.id));
-                            if (ts == null || ts.longValue() <= 0) {
-                                return;
-                            }
-                            lastOnlineSwap.set(user.status);
-                            int timeSec = (int) (ts.longValue() > 10000000000L ? (ts.longValue() / 1000L) : ts.longValue());
-                            TLRPC.TL_userStatusOffline exact = new TLRPC.TL_userStatusOffline();
-                            exact.expires = timeSec;
-                                                        user.status = exact;
-                        } catch (Throwable t) {}
+                for (Method method : LocaleController.class.getDeclaredMethods()) {
+                    if (!"formatUserStatus".equals(method.getName())) {
+                        continue;
                     }
+                    method.setAccessible(true);
+                    this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() {
+                        @Override
+                        public void beforeHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
+                            try {
+                                if (!Main.cfg.b("save_last_online", false)) {
+                                    return;
+                                }
+                                if (methodHookParam.args == null || methodHookParam.args.length < 2 || !(methodHookParam.args[1] instanceof TLRPC.User)) {
+                                    return;
+                                }
+                                TLRPC.User user = (TLRPC.User) methodHookParam.args[1];
+                                if (user == null || user.status == null) {
+                                    return;
+                                }
+                                boolean isHidden = (user.status instanceof TLRPC.TL_userStatusRecently)
+                                        || (user.status instanceof TLRPC.TL_userStatusLastWeek)
+                                        || (user.status instanceof TLRPC.TL_userStatusLastMonth)
+                                        || (user.status instanceof TLRPC.TL_userStatusEmpty);
+                                if (!isHidden) {
+                                    return;
+                                }
+                                Long ts = presenceLastSeen.get(Long.valueOf(user.id));
+                                if (ts == null || ts.longValue() <= 0) {
+                                    return;
+                                }
+                                lastOnlineSwap.set(user.status);
+                                int timeSec = (int) (ts.longValue() > 10000000000L ? (ts.longValue() / 1000L) : ts.longValue());
+                                TLRPC.TL_userStatusOffline exact = new TLRPC.TL_userStatusOffline();
+                                exact.expires = timeSec;
+                                try {
+                                    Main.sf(exact, "was_online", Integer.valueOf(timeSec));
+                                } catch (Throwable ignored) {}
+                                user.status = exact;
+                            } catch (Throwable t) {}
+                        }
 
-                    @Override
-                    public void afterHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
-                        try {
-                            Object orig = lastOnlineSwap.get();
-                            if (orig == null) {
-                                return;
-                            }
-                            lastOnlineSwap.remove();
-                            if (methodHookParam.args == null || methodHookParam.args.length < 2 || !(methodHookParam.args[1] instanceof TLRPC.User)) {
-                                return;
-                            }
-                            TLRPC.User user = (TLRPC.User) methodHookParam.args[1];
-                            if (user != null) {
-                                user.status = (TLRPC.UserStatus) orig;
-                            }
-                            Object res = methodHookParam.getResult();
-                            if (res != null) {
-                                methodHookParam.setResult("~ " + res);
-                            }
-                        } catch (Throwable t) {}
-                    }
-                }));
+                        @Override
+                        public void afterHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) {
+                            try {
+                                Object orig = lastOnlineSwap.get();
+                                if (orig == null) {
+                                    return;
+                                }
+                                lastOnlineSwap.remove();
+                                if (methodHookParam.args != null && methodHookParam.args.length >= 2 && (methodHookParam.args[1] instanceof TLRPC.User)) {
+                                    TLRPC.User user = (TLRPC.User) methodHookParam.args[1];
+                                    if (user != null) {
+                                        user.status = (TLRPC.UserStatus) orig;
+                                    }
+                                }
+                                Object res = methodHookParam.getResult();
+                                if (res instanceof CharSequence) {
+                                    String str = res.toString();
+                                    if (!str.startsWith("~ ")) {
+                                        methodHookParam.setResult("~ " + str);
+                                    }
+                                }
+                            } catch (Throwable t) {}
+                        }
+                    }));
+                }
             } catch (Throwable t) {
                 Main.err("hkFormatUserStatus", new Exception(t));
             }

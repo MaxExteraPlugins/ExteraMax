@@ -87,8 +87,10 @@ ONLINE_REQS = READ_REQS | TYPING_REQS | STORIES_REQS | SEND_REQS | frozenset([
 BLOCKED_AD_REQS = frozenset()
 DELETE_REQS = frozenset(["TL_messages_deleteMessages", "TL_channels_deleteMessages"])
 PRESENCE_UPD = frozenset(["TL_updateUserStatus", "TL_updateUserTyping", "TL_updateChatUserTyping",
-                "TL_updateChannelUserTyping", "TL_updateReadHistoryOutbox",
-                "TL_updateNewMessage", "TL_updateNewChannelMessage"])
+                "TL_updateChannelUserTyping", "TL_updateReadHistoryOutbox", "TL_updateReadChannelOutbox",
+                "TL_updateNewMessage", "TL_updateNewChannelMessage",
+                "TL_updateEditMessage", "TL_updateEditChannelMessage",
+                "TL_updateBotMessageReaction", "TL_updateMessageReactions"])
 
 ONE_YEAR_SECONDS = 365 * 24 * 60 * 60
 
@@ -268,7 +270,7 @@ class L:
         "wipe_confirm": "Удалить все сохранённые сообщения и историю правок?",
         "delete": "Удалить", "cancel": "Отмена", "cleared": "Очищено",
         "tracker": "Трекер", "only_hidden": "Только скрытый",
-        "save_last_seen": "Сохранять последний онлайн", "save_last_seen_sub": "Показывать точное время в скрытых статусах («~ был(а) в HH:MM»)",
+        "save_last_seen": "Сохранять последний онлайн", "save_last_seen_sub": "Показывать точное время в скрытых статусах для всех пользователей («~ был(а) в HH:MM»)",
         "save_once_msgs": "Сохранять одноразовые", "save_once_msgs_sub": "Не удалять одноразовые сообщения после просмотра",
         "decay": "Затухание", "tracked_users": "Отслеживаемые",
         "journal": "Журнал", "wipe_tracker": "Очистить трекер",
@@ -445,7 +447,7 @@ class L:
         "wipe_confirm": "Delete all saved messages and edit history?",
         "delete": "Delete", "cancel": "Cancel", "cleared": "Cleared",
         "tracker": "Tracker", "only_hidden": "Hidden only",
-        "save_last_seen": "Save last online", "save_last_seen_sub": "Show exact time in hidden statuses («~ last seen at HH:MM»)",
+        "save_last_seen": "Save last online", "save_last_seen_sub": "Show exact time in hidden statuses for all users («~ last seen at HH:MM»)",
         "save_once_msgs": "Keep one-time messages", "save_once_msgs_sub": "Don't delete one-time messages after viewing",
         "decay": "Decay", "tracked_users": "Tracked users",
         "journal": "Journal", "wipe_tracker": "Wipe tracker",
@@ -4045,11 +4047,23 @@ class MaxReExteraPlugin(BasePlugin):
             except Exception as e:
                 log(f"[MAX] presence hook {u} failed: {e}")
 
-    def _on_presence_track_change(self, v):
-        self.set_setting("presence_track", bool(v))
+    def _on_save_last_online_change(self, v):
+        val = bool(v)
+        self.set_setting("save_last_online", val)
+        self.set_setting("presence_track", val)
         self._sc.clear()
-        if v:
+        if val:
             self._register_presence_hooks()
+            self._start_presence_loop()
+        else:
+            self._stop_presence_loop()
+        if self.dex and self.dex.loaded:
+            self.dex.call("pySetBool", JString("save_last_online"), val)
+            self.dex.call("pySetBool", JString("presence_track"), val)
+            self.dex.call("pyFlushConfig")
+
+    def _on_presence_track_change(self, v):
+        self._on_save_last_online_change(v)
 
     def on_plugin_load(self):
         self._author_helper = AuthorChannelHelper(self, icon_sticker=globals().get("__icon__", "MaxExteraPluginsStickers/1"))
@@ -4078,7 +4092,7 @@ class MaxReExteraPlugin(BasePlugin):
                 self.add_hook(u)
             except Exception as e:
                 log(f"[MAX] on_plugin_load: hook {u} failed: {e}")
-        if self._gs("presence_track", False):
+        if self._gs("save_last_online", False) or self._gs("presence_track", False):
             self._register_presence_hooks()
         self.add_on_send_message_hook()
         self.add_menu_item(MenuItemData(menu_type=MenuItemType.MESSAGE_CONTEXT_MENU, text=L.g("edit_history"), icon="msg_edit", on_click=self._on_eh_click))
@@ -4190,7 +4204,7 @@ class MaxReExteraPlugin(BasePlugin):
             if self._is_ghost():
                 self.sendOffline()
                 self._offline_burst()
-            if self._gs("presence_track", False) and self._presence_last_seen:
+            if (self._gs("save_last_online", False) or self._gs("presence_track", False)) and self._presence_last_seen:
                 run_on_ui_thread(self._restore_presence_statuses, 1500)
 
     def on_plugin_unload(self):
@@ -7477,7 +7491,7 @@ class MaxReExteraPlugin(BasePlugin):
         return HookResult(strategy=HookStrategy.MODIFY, params=params)
 
     def on_update_hook(self, update_name, account, update):
-        if update_name in PRESENCE_UPD and (self._gs("presence_track", False) or self._presence_tracked):
+        if update_name in PRESENCE_UPD and (self._gs("save_last_online", False) or self._gs("presence_track", False)):
             try:
                 self._presence_on_update(update_name, account, update)
             except Exception:
@@ -8382,6 +8396,7 @@ class MaxReExteraPlugin(BasePlugin):
                 return
             status = TLRPC.TL_userStatusOffline()
             status.was_online = int(ts)
+            status.expires = int(ts)
             user.status = status
             NotificationCenter.getInstance(acc).postNotificationName(NotificationCenter.updateInterfaces, Integer(4))
         except Exception:
@@ -8493,6 +8508,28 @@ class MaxReExteraPlugin(BasePlugin):
                         if fid and hasattr(fid, "user_id"):
                             uid = _int(fid.user_id)
                     via = "message"
+            elif update_name in ("TL_updateEditMessage", "TL_updateEditChannelMessage"):
+                msg = getattr(update, "message", None)
+                if msg and not bool(getattr(msg, "out", False)):
+                    ev_date = _int(getattr(msg, "edit_date", 0) or getattr(msg, "date", 0))
+                    peer = getattr(msg, "peer_id", None)
+                    if peer and hasattr(peer, "user_id"):
+                        uid = _int(peer.user_id)
+                    if not uid:
+                        fid = getattr(msg, "from_id", None)
+                        if fid and hasattr(fid, "user_id"):
+                            uid = _int(fid.user_id)
+                    via = "edit"
+            elif update_name in ("TL_updateBotMessageReaction", "TL_updateMessageReactions"):
+                actor = getattr(update, "actor", None)
+                if actor and hasattr(actor, "user_id"):
+                    uid = _int(actor.user_id)
+                if not uid:
+                    peer = getattr(update, "peer", None)
+                    if peer and hasattr(peer, "user_id"):
+                        uid = _int(peer.user_id)
+                ev_date = _int(getattr(update, "date", 0))
+                via = "reaction"
             if uid <= 0:
                 return
             try:
@@ -8502,9 +8539,7 @@ class MaxReExteraPlugin(BasePlugin):
             except Exception:
                 pass
             now = self._presence_now()
-            if ev_date > 0 and via not in ("offline", "online") and abs(now - ev_date) > 30:
-                return
-            ts = ev_date if ev_date > 0 else now
+            ts = ev_date if (ev_date > 0 and ev_date <= now + 300) else now
             self._presence_remember(uid, ts, via, account)
         except Exception:
             pass
@@ -8988,13 +9023,7 @@ class MaxReExteraPlugin(BasePlugin):
             Text(text=L.g("wipe_storage"), icon="msg_clear", on_click=plugin._wipe_vault, link_alias="spy_wipe_storage"),
             Divider(),
             Header(text=L.g("tracker")),
-            Switch(key="presence_track", text=L.g("save_online"), default=False, subtext=L.g("save_online_sub"), on_change=self._on_presence_track_change, link_alias="spy_presence_track"),
-            Switch(key="save_last_online", text=L.g("save_last_seen"), default=False, subtext=L.g("save_last_seen_sub"), link_alias="spy_last_online"),
-            Switch(key="presence_only_hidden", text=L.g("only_hidden"), default=True, link_alias="spy_only_hidden"),
-            Selector(key="presence_decay", text=L.g("decay"), default=1, items=["30s", "45s", "60s", "120s"], link_alias="spy_decay"),
-            Text(text=L.g("tracked_users"), icon="msg_contacts", on_click=lambda v: plugin._show_presence_tracked(), link_alias="spy_tracked_users"),
-            Text(text=L.g("journal"), icon="msg_log", on_click=lambda v: plugin._show_presence_log(), link_alias="spy_journal"),
-            Text(text=L.g("wipe_tracker"), icon="msg_clear", on_click=lambda v: self._wipe_presence(), link_alias="spy_wipe_tracker"),
+            Switch(key="save_last_online", text=L.g("save_last_seen"), default=False, subtext=L.g("save_last_seen_sub"), on_change=self._on_save_last_online_change, link_alias="spy_last_online"),
         ]
         return items
 
