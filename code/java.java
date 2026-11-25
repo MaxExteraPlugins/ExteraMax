@@ -636,9 +636,17 @@ public class Main {
         }
     }
 
-    public static final String VERSION = "1.2.35";
+    public static final String VERSION = "1.2.40";
 
-    public static final int VERSION_CODE = 155;
+    public static final int VERSION_CODE = 160;
+
+    private static final java.util.concurrent.ExecutorService BG_EXEC = java.util.concurrent.Executors.newCachedThreadPool();
+
+    private static void runBg(Runnable r) {
+        if (r != null) {
+            BG_EXEC.execute(r);
+        }
+    }
 
     private static Config cfg;
 
@@ -3466,7 +3474,8 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
                                 finishFragment();
                             } else if (id == 11) {
                                 try {
-                                    AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+                                    if (getParentActivity() == null) return;
+                                    org.telegram.ui.ActionBar.AlertDialog.Builder builder = new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity(), resourcesProvider);
                                     builder.setTitle("ExteraMax");
                                     builder.setMessage(tr("Полностью очистить ВСЕ сохранённые удалённые сообщения во всех чатах?","Completely clear ALL saved deleted messages across all chats?"));
                                     builder.setPositiveButton(tr("Очистить всё","Clear all"), (dialog, which) -> {
@@ -3476,7 +3485,14 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
                                         });
                                     });
                                     builder.setNegativeButton(tr("Отмена","Cancel"), (dialog, which) -> dialog.dismiss());
-                                    showDialog(builder.create());
+                                    org.telegram.ui.ActionBar.AlertDialog dlg = builder.create();
+                                    showDialog(dlg);
+                                    try {
+                                        TextView posBtn = (TextView) dlg.getButton(DialogInterface.BUTTON_POSITIVE);
+                                        if (posBtn != null) {
+                                            posBtn.setTextColor(Theme.getColor(Theme.key_text_RedBold, resourcesProvider));
+                                        }
+                                    } catch (Throwable ignored) {}
                                 } catch (Throwable ignored) {}
                             }
                         }
@@ -3602,6 +3618,12 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         private final Theme.ResourcesProvider resourcesProvider;
 
+        private static Object noOpDelegateProxy;
+
+        private static Method setDelegateMethod;
+
+        private static boolean delegateInitTried;
+
         private int loadGeneration;
 
         private final ArrayList<MessageObject> items = new ArrayList<>();
@@ -3622,15 +3644,47 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
+        private static void attachNoOpDelegate(ChatMessageCell cell) {
+            if (cell == null) return;
+            try {
+                if (!delegateInitTried) {
+                    delegateInitTried = true;
+                    Class<?> delCls = Class.forName("org.telegram.ui.Cells.ChatMessageCell$ChatMessageCellDelegate", false, ChatMessageCell.class.getClassLoader());
+                    setDelegateMethod = ChatMessageCell.class.getMethod("setDelegate", delCls);
+                    noOpDelegateProxy = Proxy.newProxyInstance(ChatMessageCell.class.getClassLoader(), new Class<?>[]{delCls}, (proxy, method, args) -> {
+                        String name = method.getName();
+                        if ("canDrawOutboundsContent".equals(name) || "doNotShowLoadingReply".equals(name)
+                                || "shouldDrawAvatarOnlineStatus".equals(name) || "shouldRepeatSticker".equals(name)) {
+                            return Boolean.TRUE;
+                        }
+                        Class<?> rt = method.getReturnType();
+                        if (rt == Boolean.TYPE) return Boolean.FALSE;
+                        if (rt == Integer.TYPE) return 0;
+                        if (rt == Long.TYPE) return 0L;
+                        if (rt == Float.TYPE) return 0.0f;
+                        if (rt == Double.TYPE) return 0.0;
+                        return null;
+                    });
+                }
+                if (setDelegateMethod != null && noOpDelegateProxy != null) {
+                    setDelegateMethod.invoke(cell, noOpDelegateProxy);
+                }
+            } catch (Throwable t) {
+                err("attachNoOpDel", new Exception(t));
+            }
+        }
+
         int getMessageCount() { return items.size(); }
 
         void reloadAsync(long dialogId, Runnable onDone) {
 
             final int gen = ++loadGeneration;
 
-            Utilities.globalQueue.postRunnable(() -> {
+            Main.runBg(() -> {
 
                 final ArrayList<MessageObject> loadedItems = new ArrayList<>();
+
+                try {
 
                 List<VaultDb.DeletedItem> stored = db.getRemovedListPage(dialogId, 0, 500);
 
@@ -3638,13 +3692,23 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
                 int minValidDate = 1356998400; // 2013-01-01
 
-                // Collect mids of items that no longer exist in storage for batch cleanup
-
-                ArrayList<Integer> toPurge = new ArrayList<>();
+                HashSet<Integer> seenMids = new HashSet<>();
 
                 if (stored != null) {
 
                     for (VaultDb.DeletedItem item : stored) {
+
+                        if (item.mid <= 0 || !seenMids.add(item.mid)) continue;
+
+                        MessageObject mo = getMessage(currentAccount, dialogId, item.mid);
+
+                        if (mo != null) {
+
+                            loadedItems.add(mo);
+
+                            continue;
+
+                        }
 
                         Meta meta = parseData(item.text);
 
@@ -3654,35 +3718,9 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
                         int itemDate = meta.d > minValidDate ? meta.d : (item.ts > 1000000000000L ? (int) (item.ts / 1000) : (int) item.ts);
 
-                        if (itemDate < minValidDate || itemDate > nowSec + 86400) continue;
+                        if (itemDate < minValidDate || itemDate > nowSec + 86400) itemDate = nowSec;
 
-                        // Bug fix: this used to purge the vault entry whenever
-
-                        // MessagesStorage.getMessage() came back null. But that is the
-
-                        // EXPECTED, NORMAL state for a message that was actually deleted -
-
-                        // Telegram's own local DB drops the row as soon as the delete syncs
-
-                        // down, which happens almost immediately. Purging here means our own
-
-                        // saved copy of a just-deleted message got wiped out again within
-
-                        // seconds of being saved, defeating the entire point of "save
-
-                        // deleted messages". The vault's own stored text/meta (displayText,
-
-                        // already validated above) is the source of truth for whether this
-
-                        // entry is worth keeping, not whether Telegram still has a live copy.
-
-                        MessageObject mo = getMessage(currentAccount, dialogId, item.mid);
-
-                        if (mo != null) {
-
-                            loadedItems.add(mo);
-
-                        } else if (displayText != null && !displayText.isEmpty()) {
+                        if (displayText != null && !displayText.isEmpty()) {
 
                             try {
 
@@ -3762,7 +3800,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
                                 loadedItems.add(fallbackObj);
 
-                            } catch (Exception e) { err("delList", e); }
+                            } catch (Throwable e) { err("delList", new Exception(e)); }
 
 }
 
@@ -3770,12 +3808,27 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
                     }
 
-                    // Purge messages that no longer exist in storage
-
-                    if (!toPurge.isEmpty()) {
-
-                        db.purge(dialogId, toPurge);
-
+                    Set<Integer> memSet = deletedStore.get(Long.valueOf(dialogId));
+                    if (memSet != null) {
+                        for (Integer mid : memSet) {
+                            if (mid != null && mid.intValue() > 0 && seenMids.add(mid)) {
+                                MessageObject mo = getMessage(currentAccount, dialogId, mid.intValue());
+                                if (mo != null) loadedItems.add(mo);
+                            }
+                        }
+                    }
+                    if (dialogId < 0) {
+                        long altDid = (dialogId < -1000000000000L) ? -(-dialogId - 1000000000000L) : (-1000000000000L - (-dialogId));
+                        Set<Integer> altSet = deletedStore.get(Long.valueOf(altDid));
+                        if (altSet != null) {
+                            for (Integer mid : altSet) {
+                                if (mid != null && mid.intValue() > 0 && seenMids.add(mid)) {
+                                    MessageObject mo = getMessage(currentAccount, dialogId, mid.intValue());
+                                    if (mo == null) mo = getMessage(currentAccount, altDid, mid.intValue());
+                                    if (mo != null) loadedItems.add(mo);
+                                }
+                            }
+                        }
                     }
 
                     loadedItems.sort((a, b) -> {
@@ -3784,23 +3837,37 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
                     return Integer.compare(da, db);
                 });
 
+                } catch (Throwable t) {
+
+                    err("reloadDeletedAsync", new Exception(t));
+
+                }
+
                 final ArrayList<MessageObject> loadedRows = buildRows(loadedItems);
 
                 AndroidUtilities.runOnUIThread(() -> {
 
-                    if (gen != loadGeneration) return;
+                    try {
 
-                    items.clear();
+                        if (gen != loadGeneration) return;
 
-                    items.addAll(loadedItems);
+                        items.clear();
 
-                    rows.clear();
+                        items.addAll(loadedItems);
 
-                    rows.addAll(loadedRows);
+                        rows.clear();
 
-                    notifyDataSetChanged();
+                        rows.addAll(loadedRows);
 
-                    if (onDone != null) onDone.run();
+                        notifyDataSetChanged();
+
+                        if (onDone != null) onDone.run();
+
+                    } catch (Throwable t) {
+
+                        err("reloadDeletedUi", new Exception(t));
+
+                    }
 
                 });
 
@@ -3895,9 +3962,54 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             try {
                 View view;
                 if (viewType == VIEW_TYPE_DATE) {
-                    view = new org.telegram.ui.Cells.ChatActionCell(context, false, resourcesProvider);
+                    view = new org.telegram.ui.Cells.ChatActionCell(context, false, resourcesProvider) {
+                        @Override
+                        public void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                            try {
+                                super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+                            } catch (Throwable t) {
+                                err("dmDateMeasure", new Exception(t));
+                                setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), AndroidUtilities.dp(32));
+                            }
+                        }
+                        @Override
+                        public void onDraw(Canvas canvas) {
+                            try {
+                                super.onDraw(canvas);
+                            } catch (Throwable t) {
+                                err("dmDateDraw", new Exception(t));
+                            }
+                        }
+                    };
                 } else {
-                    ChatMessageCell cell = new ChatMessageCell(context, currentAccount);
+                    ChatMessageCell cell = new ChatMessageCell(context, currentAccount) {
+                        @Override
+                        public void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                            try {
+                                super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+                            } catch (Throwable t) {
+                                err("dmCellMeasure", new Exception(t));
+                                setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), AndroidUtilities.dp(48));
+                            }
+                        }
+                        @Override
+                        public void onLayout(boolean changed, int left, int top, int right, int bottom) {
+                            try {
+                                super.onLayout(changed, left, top, right, bottom);
+                            } catch (Throwable t) {
+                                err("dmCellLayout", new Exception(t));
+                            }
+                        }
+                        @Override
+                        public void onDraw(Canvas canvas) {
+                            try {
+                                super.onDraw(canvas);
+                            } catch (Throwable t) {
+                                err("dmCellDraw", new Exception(t));
+                            }
+                        }
+                    };
+                    attachNoOpDelegate(cell);
                     cell.setAllowAssistant(false);
                     view = cell;
                 }
@@ -4555,7 +4667,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
             final int gen = ++loadGeneration;
 
-            Utilities.globalQueue.postRunnable(() -> {
+            Main.runBg(() -> {
 
                 MessageObject liveObj = Main.getMessage(currentAccount, did, mid);
 
@@ -6678,7 +6790,19 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
             try {
 
-                Cursor rawQuery = this.helper.getReadableDatabase().rawQuery("SELECT mid, data, ts, attachment_saved FROM deleted_keys WHERE did=? ORDER BY ts DESC LIMIT ? OFFSET ?", new String[]{String.valueOf(j), String.valueOf(i2), String.valueOf(i)});
+                Cursor rawQuery;
+
+                if (j < 0) {
+
+                    long alt = (j < -1000000000000L) ? -(-j - 1000000000000L) : (-1000000000000L - (-j));
+
+                    rawQuery = this.helper.getReadableDatabase().rawQuery("SELECT mid, data, ts, attachment_saved FROM deleted_keys WHERE did IN (?, ?) ORDER BY ts DESC LIMIT ? OFFSET ?", new String[]{String.valueOf(j), String.valueOf(alt), String.valueOf(i2), String.valueOf(i)});
+
+                } else {
+
+                    rawQuery = this.helper.getReadableDatabase().rawQuery("SELECT mid, data, ts, attachment_saved FROM deleted_keys WHERE did=? ORDER BY ts DESC LIMIT ? OFFSET ?", new String[]{String.valueOf(j), String.valueOf(i2), String.valueOf(i)});
+
+                }
 
                 while (rawQuery.moveToNext()) {
 
