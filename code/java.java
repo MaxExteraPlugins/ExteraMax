@@ -636,9 +636,9 @@ public class Main {
         }
     }
 
-    public static final String VERSION = "1.2.40";
+    public static final String VERSION = "1.2.43";
 
-    public static final int VERSION_CODE = 160;
+    public static final int VERSION_CODE = 163;
 
     private static final java.util.concurrent.ExecutorService BG_EXEC = java.util.concurrent.Executors.newCachedThreadPool();
 
@@ -6010,6 +6010,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
         }
 
+        try {
+            long myId = UserConfig.getInstance(UserConfig.selectedAccount).getClientUserId();
+            if (myId != 0 && uid == myId) return;
+        } catch (Throwable ignored) {}
+
         Long prev = presenceLastSeen.get(Long.valueOf(uid));
 
         if (prev != null && prev.longValue() >= ts) {
@@ -6017,6 +6022,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             return;
 
         }
+
+        try {
+            long now = ConnectionsManager.getInstance(UserConfig.selectedAccount).getCurrentTime();
+            if (now > 0 && ts > now + 300) ts = now;
+        } catch (Throwable ignored) {}
 
         presenceRemember(uid, ts);
 
@@ -9158,13 +9168,15 @@ public boolean addRegex(String str) {
 
                 final ActionBarMenuSubItem addSwipeBackItem = actionBarMenuItem.addSwipeBackItem(i, (Drawable) null, "ExteraMax", (View) newInstance);
 
+                final View subMenuView = (View) newInstance;
+
                 addSwipeBackItem.setOnClickListener(new View.OnClickListener() {
 
                     @Override
 
                     public final void onClick(View view) {
 
-                        HookManager.lambda$inject3DotMenu$3(addSwipeBackItem, view);
+                        HookManager.lambda$inject3DotMenu$3(actionBarMenuItem, chatActivity, subMenuView, addSwipeBackItem, view);
 
                     }
 
@@ -9218,16 +9230,58 @@ public boolean addRegex(String str) {
 
         }
 
-        static void lambda$inject3DotMenu$3(ActionBarMenuSubItem actionBarMenuSubItem, View view) {
-
+        static void lambda$inject3DotMenu$3(ActionBarMenuItem actionBarMenuItem, ChatActivity chatActivity, View subMenuView, ActionBarMenuSubItem actionBarMenuSubItem, View view) {
             try {
+                boolean isSaved = false;
+                try {
+                    long myId = UserConfig.getInstance(chatActivity.getCurrentAccount()).getClientUserId();
+                    isSaved = (myId != 0 && chatActivity.getDialogId() == myId);
+                } catch (Throwable ignored) {}
 
-                actionBarMenuSubItem.openSwipeBack();
+                boolean hasSwipe = false;
+                try {
+                    Field fOpen = ActionBarMenuSubItem.class.getDeclaredField("openSwipeBackLayout");
+                    fOpen.setAccessible(true);
+                    hasSwipe = (fOpen.get(actionBarMenuSubItem) != null) && (subMenuView != null && subMenuView.getParent() != null);
+                } catch (Throwable ignored) {}
 
-            } catch (Throwable th) {
+                if (!isSaved && hasSwipe) {
+                    actionBarMenuSubItem.openSwipeBack();
+                    return;
+                }
+            } catch (Throwable ignored) {}
 
+            try { actionBarMenuItem.closeSubMenu(); } catch (Throwable ignored) {}
+            show3DotFallbackDialog(chatActivity);
+        }
+
+        private static void show3DotFallbackDialog(final ChatActivity chatActivity) {
+            try {
+                if (chatActivity == null) return;
+                Context ctx = chatActivity.getContext();
+                if (ctx == null) return;
+                CharSequence[] items = new CharSequence[]{
+                    tr("Посмотреть удалёнки", "View deleted"),
+                    tr("Очистить удалёнки", "Clear deleted"),
+                    tr("Очистить ВСЕ удалёнки", "Clear ALL deleted"),
+                    tr("Синхронизировать чат", "Sync chat"),
+                    tr("Синхронизировать все чаты", "Sync all chats")
+                };
+                org.telegram.ui.ActionBar.AlertDialog.Builder b = new org.telegram.ui.ActionBar.AlertDialog.Builder(ctx, chatActivity.getResourceProvider());
+                b.setTitle("ExteraMax");
+                b.setItems(items, (dlg, which) -> {
+                    try {
+                        if (which == 0) Main.openDeletedMessages(chatActivity);
+                        else if (which == 1) confirmPurge3dot(chatActivity);
+                        else if (which == 2) confirmPurgeAll3dot(chatActivity);
+                        else if (which == 3) Main.reloadChatFromCloud(chatActivity);
+                        else if (which == 4) Main.syncAllChatsFromCloud(null);
+                    } catch (Throwable ignored) {}
+                });
+                chatActivity.showDialog(b.create());
+            } catch (Throwable t) {
+                Main.err("3dotDlg", new Exception(t));
             }
-
         }
 
         private static void confirmPurge3dot(ChatActivity chatActivity) {
@@ -10364,16 +10418,20 @@ private void go() throws Exception {
 
                                 if ("TL_updateShortMessage".equals(cn)) {
                                     try {
-                                        long uid = ((Number) Main.gf(arg, "user_id")).longValue();
-                                        int date = ((Number) Main.gf(arg, "date")).intValue();
-                                        Main.presenceRecord(uid, date > 0 ? date : now);
+                                        if (!Boolean.TRUE.equals(Main.gf(arg, "out"))) {
+                                            long uid = ((Number) Main.gf(arg, "user_id")).longValue();
+                                            int date = ((Number) Main.gf(arg, "date")).intValue();
+                                            Main.presenceRecord(uid, date > 0 ? date : now);
+                                        }
                                     } catch (Exception e) {
                                     }
                                 } else if ("TL_updateShortChatMessage".equals(cn)) {
                                     try {
-                                        long uid = ((Number) Main.gf(arg, "from_id")).longValue();
-                                        int date = ((Number) Main.gf(arg, "date")).intValue();
-                                        Main.presenceRecord(uid, date > 0 ? date : now);
+                                        if (!Boolean.TRUE.equals(Main.gf(arg, "out"))) {
+                                            long uid = ((Number) Main.gf(arg, "from_id")).longValue();
+                                            int date = ((Number) Main.gf(arg, "date")).intValue();
+                                            Main.presenceRecord(uid, date > 0 ? date : now);
+                                        }
                                     } catch (Exception e) {
                                     }
                                 } else if ("TL_updateReadHistoryOutbox".equals(cn)) {
@@ -10396,20 +10454,6 @@ private void go() throws Exception {
                                             Main.saveReadDate(-1000000000000L - channelId, maxId, (int) now);
                                         }
                                     } catch (Exception e) {}
-                                } else if ("TL_updateShortChatMessage".equals(cn)) {
-
-                                    try {
-
-                                        long uid = ((Number) Main.gf(arg, "from_id")).longValue();
-
-                                        int date = ((Number) Main.gf(arg, "date")).intValue();
-
-                                        Main.presenceRecord(uid, date > 0 ? date : now);
-
-                                    } catch (Exception e) {
-
-                                    }
-
                                 }
 
                             }
@@ -10510,7 +10554,7 @@ private void go() throws Exception {
 
                                         }
 
-                                    } else if ("TL_updateChatUserTyping".equals(simpleName)) {
+                                    } else if ("TL_updateChatUserTyping".equals(simpleName) || "TL_updateChannelUserTyping".equals(simpleName)) {
 
                                         try {
 
@@ -10579,6 +10623,24 @@ private void go() throws Exception {
                                                 Main.presenceRecord(uid, date > 0 ? date : now);
                                             }
                                         } catch (Exception e) {}
+                                    } else if ("TL_updateMessageReactions".equals(simpleName)) {
+                                        try {
+                                            Object reactions = Main.gf(next, "reactions");
+                                            Object recent = reactions != null ? Main.gf(reactions, "recent_reactions") : null;
+                                            if (recent instanceof ArrayList) {
+                                                for (Object r : (ArrayList) recent) {
+                                                    if (r == null) continue;
+                                                    Object rp = Main.gf(r, "peer_id");
+                                                    if (rp instanceof TLRPC.TL_peerUser && ((TLRPC.TL_peerUser) rp).user_id > 0) {
+                                                        int rDate = 0;
+                                                        try { rDate = ((Number) Main.gf(r, "date")).intValue(); } catch (Exception ignored) {}
+                                                        if (rDate > 0) {
+                                                            Main.presenceRecord(((TLRPC.TL_peerUser) rp).user_id, rDate);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        } catch (Exception e) {}
                                     } else if ("TL_updateNewMessage".equals(simpleName) || "TL_updateNewChannelMessage".equals(simpleName)) {
 
                                         try {
@@ -10645,14 +10707,54 @@ private void go() throws Exception {
 
             private static final long TTL_MS = 60000L;
 
+            private static final long PURGE_TTL_MS = 5000L;
+
             private static final ConcurrentHashMap<String, Long> storage = new ConcurrentHashMap<>();
 
             private static final ConcurrentHashMap<String, Long> ui = new ConcurrentHashMap<>();
+
+            private static final ConcurrentHashMap<String, Long> purgeBypass = new ConcurrentHashMap<>();
 
             private static String key(long did, int mid) {
 
                 return did + ":" + mid;
 
+            }
+
+            private static long altDialogId(long did) {
+                if (did < -1000000000000L) return -(-did - 1000000000000L);
+                if (did < 0) return -1000000000000L - (-did);
+                return 0L;
+            }
+
+            public static void allowPurge(long dialogId, Collection<Integer> messageIds) {
+                if (messageIds == null || messageIds.isEmpty()) return;
+                long exp = SystemClock.elapsedRealtime() + PURGE_TTL_MS;
+                long alt = altDialogId(dialogId);
+                for (Integer mid : messageIds) {
+                    if (mid == null) continue;
+                    int m = mid.intValue();
+                    purgeBypass.put(key(dialogId, m), exp);
+                    if (alt != 0L) purgeBypass.put(key(alt, m), exp);
+                }
+            }
+
+            private static boolean isPurgeBypassed(long dialogId, int messageId) {
+                long now = SystemClock.elapsedRealtime();
+                Long exp = purgeBypass.get(key(dialogId, messageId));
+                if (exp != null) {
+                    if (now <= exp.longValue()) return true;
+                    purgeBypass.remove(key(dialogId, messageId));
+                }
+                long alt = altDialogId(dialogId);
+                if (alt != 0L) {
+                    Long exp2 = purgeBypass.get(key(alt, messageId));
+                    if (exp2 != null) {
+                        if (now <= exp2.longValue()) return true;
+                        purgeBypass.remove(key(alt, messageId));
+                    }
+                }
+                return false;
             }
 
             public static void allow(long dialogId, Collection<Integer> messageIds) {
@@ -10679,11 +10781,15 @@ private void go() throws Exception {
 
             public static boolean consumeStorage(long dialogId, int messageId) {
 
+                if (isPurgeBypassed(dialogId, messageId)) return true;
+
                 return consume(storage, key(dialogId, messageId));
 
             }
 
             public static boolean consumeUi(long dialogId, int messageId) {
+
+                if (isPurgeBypassed(dialogId, messageId)) return true;
 
                 return consume(ui, key(dialogId, messageId));
 
@@ -10772,13 +10878,22 @@ private void go() throws Exception {
                                 }
                             }
                         } catch (Throwable ignored) {}
-                        if (foundDid != 0 && foundDid != 489000L) {
-                            List<Integer> list = messagesByDialog.get(foundDid);
-                            if (list == null) {
-                                list = new ArrayList<>();
-                                messagesByDialog.put(foundDid, list);
+                        if (foundDid != 0 && foundDid != 489000L && foundDid > -1000000000000L) {
+                            boolean isChan = false;
+                            if (foundDid < 0) {
+                                try {
+                                    TLRPC.Chat ch = mc.getChat(Long.valueOf(-foundDid));
+                                    if (ch != null && ChatObject.isChannel(ch)) isChan = true;
+                                } catch (Throwable ignored) {}
                             }
-                            list.add(mid);
+                            if (!isChan) {
+                                List<Integer> list = messagesByDialog.get(foundDid);
+                                if (list == null) {
+                                    list = new ArrayList<>();
+                                    messagesByDialog.put(foundDid, list);
+                                }
+                                list.add(mid);
+                            }
                         }
                     }
                 } catch (Throwable ignored) {}
@@ -10933,6 +11048,8 @@ private void go() throws Exception {
                     Class<?>[] pTypes = method.getParameterTypes();
                     if ("markMessagesAsDeleted".equals(name) || "markMessagesAsDeletedInternal".equals(name)) {
                         if (pTypes.length >= 2 && pTypes[0] == Long.TYPE && pTypes[1] == ArrayList.class) {
+                            final int reasonIdx = ("markMessagesAsDeletedInternal".equals(name) && pTypes.length >= 4 && pTypes[3] == Integer.TYPE) ? 3
+                                    : (("markMessagesAsDeleted".equals(name) && pTypes.length >= 5 && pTypes[4] == Integer.TYPE) ? 4 : -1);
                             try {
                                 method.setAccessible(true);
                                 this.hooks.add(XposedBridge.hookMethod(method, new XC_MethodHook() {
@@ -10941,6 +11058,7 @@ private void go() throws Exception {
                                         try {
                                             if (!Main.cfg.b("save_deleted", true) || Main.db == null) return;
                                             if (rangeDeleteActive.get()) return;
+                                            if (reasonIdx >= 0 && ((Number) methodHookParam.args[reasonIdx]).intValue() != 0) return;
                                             long did = ((Number) methodHookParam.args[0]).longValue();
                                             if (did == 489000L || Main.purgeDialogs.contains(Long.valueOf(did))) return;
                                             if (did != 0 && !Main.cfg.b("save_bot_chats", false) && Main.isBotDialog(did)) return;
@@ -11135,12 +11253,30 @@ private void go() throws Exception {
                                 return;
                             }
 
+                            long argChannelId = ((Number) methodHookParam.args[1]).longValue();
+                            TLRPC.Chat currentChat = chatActivity.getCurrentChat();
+                            if (argChannelId != 0) {
+                                boolean matchesChannel = (dialogId == -argChannelId || dialogId == -1000000000000L - argChannelId || (currentChat != null && currentChat.id == argChannelId));
+                                if (!matchesChannel) return;
+                            } else {
+                                if (currentChat != null && ChatObject.isChannel(currentChat)) return;
+                            }
+
+                            HashSet<Integer> chatMids = null;
+                            if (argChannelId == 0 && chatActivity.messages != null) {
+                                chatMids = new HashSet<>();
+                                for (MessageObject mo : chatActivity.messages) {
+                                    if (mo != null && mo.getId() > 0) chatMids.add(Integer.valueOf(mo.getId()));
+                                }
+                            }
+
                             ArrayList<Integer> validIds = new ArrayList<>();
                             ArrayList<Integer> tempIds = new ArrayList<>();
                             for (Integer id : originalMessages) {
                                 if (id == null) continue;
                                 int v = id.intValue();
-                                if (v > 0 && !DeletionBypass.consumeUi(dialogId, v)) {
+                                boolean belongsHere = (argChannelId != 0) || (chatMids != null && chatMids.contains(id));
+                                if (v > 0 && belongsHere && !DeletionBypass.consumeUi(dialogId, v)) {
                                     validIds.add(id);
                                 } else {
                                     tempIds.add(id);
@@ -11189,6 +11325,14 @@ private void go() throws Exception {
                                     float a = isDel ? delOp() : 1.0f;
                                     try { cell.setTransitionAlpha(a); } catch (Throwable ignored) {}
                                     try { cell.setAlpha(a); } catch (Throwable ignored) {}
+                                    if ((Main.cfg.b("presence_track", false) || Main.cfg.b("save_last_online", false))
+                                            && mo != null && !mo.isDateObject && !mo.isOutOwner()
+                                            && mo.messageOwner != null && mo.messageOwner.id > 0 && mo.messageOwner.date > 0
+                                            && (mo.messageOwner.from_id instanceof TLRPC.TL_peerUser)
+                                            && mo.messageOwner.from_id.user_id > 0) {
+                                        long ts = mo.messageOwner.edit_date > mo.messageOwner.date ? mo.messageOwner.edit_date : mo.messageOwner.date;
+                                        Main.presenceRecord(mo.messageOwner.from_id.user_id, ts);
+                                    }
                                 } catch (Throwable t) {}
                             }
                         }));
@@ -11632,64 +11776,22 @@ private void go() throws Exception {
                                             if (did != 0 && did != effectiveDid) {
                                                 Main.removeDeleted(did, purgeCopy);
                                             }
-                                            if (Main.db != null) {
-                                                Main.db.purge(effectiveDid, purgeCopy);
-                                                if (did != 0 && did != effectiveDid) {
-                                                    Main.db.purge(did, purgeCopy);
-                                                }
+                                            DeletionBypass.allowPurge(effectiveDid, purgeCopy);
+                                            if (did != 0 && did != effectiveDid) {
+                                                DeletionBypass.allowPurge(did, purgeCopy);
                                             }
-                                            DeletionBypass.allow(effectiveDid, purgeCopy);
-                                            if (did != 0) DeletionBypass.allow(did, purgeCopy);
-
-                                            AndroidUtilities.runOnUIThread(new Runnable() {
-                                                @Override
-                                                public void run() {
-                                                    try {
-                                                        MessagesController.getInstance(currentAccount).deleteMessages(purgeCopy, null, null, effectiveDid, effectiveChannelId, false, 0);
-                                                    } catch (Throwable ignored) {}
-                                                    try {
-                                                        BaseFragment lastFrag = LaunchActivity.getLastFragment();
-                                                        if (lastFrag instanceof ChatActivity) {
-                                                            ChatActivity ca = (ChatActivity) lastFrag;
-                                                            if (ca.getDialogId() == effectiveDid || (ca.getCurrentChat() != null && ca.getCurrentChat().id == effectiveChannelId)) {
-                                                                if (ca.messages != null) {
-                                                                    ArrayList<MessageObject> toRemove = new ArrayList<>();
-                                                                    for (MessageObject mo : ca.messages) {
-                                                                        if (mo != null && purgeCopy.contains(Integer.valueOf(mo.getId()))) {
-                                                                            toRemove.add(mo);
-                                                                        }
-                                                                    }
-                                                                    if (!toRemove.isEmpty()) {
-                                                                        ca.messages.removeAll(toRemove);
-                                                                        ca.updateMessagesVisiblePart(true);
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    } catch (Throwable ignored) {}
-                                                }
-                                            });
                                         }
 
                                         boolean saveOwn = Main.cfg.b("track_own_deletions", true);
-                                        if (!saveOwn) {
+                                        if (!saveOwn && !notYetDeleted.isEmpty()) {
                                             DeletionBypass.allow(effectiveDid, notYetDeleted);
-                                            if (did != 0) DeletionBypass.allow(did, notYetDeleted);
-                                        }
-
-                                        if (notYetDeleted.isEmpty()) {
-                                            methodHookParam.setResult(null);
-                                        } else {
-                                            if (!alreadyDeleted.isEmpty()) {
-                                                methodHookParam.args[0] = new ArrayList<>(notYetDeleted);
-                                            }
+                                            if (did != 0 && did != effectiveDid) DeletionBypass.allow(did, notYetDeleted);
                                         }
                                     } catch (Exception e) {
                                         Main.err("hkDelMsgs", e);
                                     }
                                 }
                             }));
-                            break;
                         }
                     }
                 }

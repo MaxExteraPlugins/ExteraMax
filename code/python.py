@@ -59,7 +59,7 @@ __id__ = "ExteraMax"
 __name__ = "ExteraMax"
 __description__ = "[EN]: Updated version of the «re:extera» plugin («ghost» mode, spy features, message filters, and much more).\n\n[RU]: Обновленная версия плагина «re:extera» (режим «призрака», функции шпиона, фильтры сообщений и многое другое)."
 __author__ = "@itNotMax - @MaxExteraPlugins"
-__version__ = "1.5.40"
+__version__ = "1.5.43"
 __icon__ = "MaxExteraPluginsStickers/30"
 __min_version__ = "12.10.6"
 __app_version__ = ">=12.8.1"
@@ -8261,7 +8261,7 @@ class MaxReExteraPlugin(BasePlugin):
             if not st:
                 return True
             name = str(st.getClass().getSimpleName())
-            return name in ("TL_userStatusEmpty", "TL_userStatusRecently", "TL_userStatusLastWeek", "TL_userStatusLastMonth") or _int(getattr(st, "expires", 0)) <= 0
+            return name in ("TL_userStatusEmpty", "TL_userStatusRecently", "TL_userStatusLastWeek", "TL_userStatusLastMonth")
         except Exception:
             return False
 
@@ -8347,21 +8347,17 @@ class MaxReExteraPlugin(BasePlugin):
             if update_name == "TL_updateUserStatus":
                 uid = _int(getattr(update, "user_id", 0))
                 status = getattr(update, "status", None)
+                st_name = str(status.getClass().getSimpleName()) if status is not None else ""
                 expires = _int(getattr(status, "expires", 0))
                 was_online = _int(getattr(status, "was_online", 0))
                 now = self._presence_now()
-                if expires > now:
+                if st_name == "TL_userStatusOnline" or (expires > now and was_online <= 0):
                     ev_date = now
                     via = "online"
                 elif was_online > 0:
-                    ev_date = was_online
+                    ev_date = min(was_online, now)
                     via = "offline"
                 else:
-                    cached = _int(self._presence_last_seen.get(str(uid), 0))
-                    if cached > 0 and status is not None:
-                        exact = TLRPC.TL_userStatusOffline()
-                        exact.was_online = cached
-                        update.status = exact
                     return
             elif update_name == "TL_updateUserTyping":
                 uid = _int(getattr(update, "user_id", 0))
@@ -8380,25 +8376,25 @@ class MaxReExteraPlugin(BasePlugin):
                 msg = getattr(update, "message", None)
                 if msg and not bool(getattr(msg, "out", False)):
                     ev_date = _int(getattr(msg, "date", 0))
-                    peer = getattr(msg, "peer_id", None)
-                    if peer and hasattr(peer, "user_id"):
-                        uid = _int(peer.user_id)
+                    fid = getattr(msg, "from_id", None)
+                    if fid and hasattr(fid, "user_id"):
+                        uid = _int(fid.user_id)
                     if not uid:
-                        fid = getattr(msg, "from_id", None)
-                        if fid and hasattr(fid, "user_id"):
-                            uid = _int(fid.user_id)
+                        peer = getattr(msg, "peer_id", None)
+                        if peer and hasattr(peer, "user_id"):
+                            uid = _int(peer.user_id)
                     via = "message"
             elif update_name in ("TL_updateEditMessage", "TL_updateEditChannelMessage"):
                 msg = getattr(update, "message", None)
                 if msg and not bool(getattr(msg, "out", False)):
                     ev_date = _int(getattr(msg, "edit_date", 0) or getattr(msg, "date", 0))
-                    peer = getattr(msg, "peer_id", None)
-                    if peer and hasattr(peer, "user_id"):
-                        uid = _int(peer.user_id)
+                    fid = getattr(msg, "from_id", None)
+                    if fid and hasattr(fid, "user_id"):
+                        uid = _int(fid.user_id)
                     if not uid:
-                        fid = getattr(msg, "from_id", None)
-                        if fid and hasattr(fid, "user_id"):
-                            uid = _int(fid.user_id)
+                        peer = getattr(msg, "peer_id", None)
+                        if peer and hasattr(peer, "user_id"):
+                            uid = _int(peer.user_id)
                     via = "edit"
             elif update_name in ("TL_updateBotMessageReaction", "TL_updateMessageReactions"):
                 actor = getattr(update, "actor", None)
