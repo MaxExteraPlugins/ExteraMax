@@ -636,9 +636,9 @@ public class Main {
         }
     }
 
-    public static final String VERSION = "1.2.34";
+    public static final String VERSION = "1.2.35";
 
-    public static final int VERSION_CODE = 154;
+    public static final int VERSION_CODE = 155;
 
     private static Config cfg;
 
@@ -2836,7 +2836,13 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
             AndroidUtilities.runOnUIThread(() -> {
                 try {
                     DeletedMessagesFragment fragment = DeletedMessagesFragment.newInstance(j);
-                    chatActivity.presentFragment(fragment);
+                    boolean presented = chatActivity.presentFragment(fragment);
+                    if (!presented) {
+                        BaseFragment last = LaunchActivity.getLastFragment();
+                        if (last != null && last != chatActivity) {
+                            last.presentFragment(fragment);
+                        }
+                    }
                 } catch (Throwable t) {
                     err("openDeletedMessages_ui", new Exception(t));
                 }
@@ -3381,12 +3387,11 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     
 
-    public static class DeletedMessagesFragment extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
+    public static class DeletedMessagesFragment extends BaseFragment {
 
         private long did;
         private TLRPC.User currentUser;
         private TLRPC.Chat currentChat;
-        private ChatAvatarContainer avatarContainer;
         private RecyclerListView chatListView;
         private DeletedAdapter adapter;
         private TextView emptyView;
@@ -3395,11 +3400,19 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         private boolean loadingMessages;
         private int reloadGeneration;
 
+        public DeletedMessagesFragment() {
+            super();
+        }
+
+        public DeletedMessagesFragment(Bundle args) {
+            super(args);
+        }
+
         public static DeletedMessagesFragment newInstance(long did) {
-            DeletedMessagesFragment f = new DeletedMessagesFragment();
             Bundle b = new Bundle();
             b.putLong("did", did);
-            f.arguments = b;
+            b.putLong("dialog_id", did);
+            DeletedMessagesFragment f = new DeletedMessagesFragment(b);
             f.did = did;
             return f;
         }
@@ -3410,13 +3423,15 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
                 arguments = new Bundle();
             }
             arguments.putLong("did", d);
+            arguments.putLong("dialog_id", d);
         }
 
         @Override public boolean onFragmentCreate() {
             try {
                 Bundle args = getArguments();
-                if (args != null && args.containsKey("did")) {
-                    did = args.getLong("did");
+                if (args != null) {
+                    if (args.containsKey("did")) did = args.getLong("did");
+                    else if (args.containsKey("dialog_id")) did = args.getLong("dialog_id");
                 }
                 MessagesController mc = MessagesController.getInstance(getCurrentAccount());
                 if (did > 0) {
@@ -3427,23 +3442,7 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
                     currentChat = mc.getChat(Long.valueOf(chatId));
                 }
             } catch (Throwable e) {}
-            NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.emojiLoaded);
-            NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.didSetNewWallpapper);
             return super.onFragmentCreate();
-        }
-
-        @Override public void onFragmentDestroy() {
-            NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.emojiLoaded);
-            NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.didSetNewWallpapper);
-            super.onFragmentDestroy();
-        }
-
-        @Override public void didReceivedNotification(int id, int account, Object... args) {
-            if (id == NotificationCenter.emojiLoaded) {
-                if (chatListView != null) chatListView.invalidateViews();
-            } else if (id == NotificationCenter.didSetNewWallpapper) {
-                if (contentView != null) contentView.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
-            }
         }
 
         @Override public View createView(Context context) {
@@ -3483,26 +3482,19 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
                         }
                     });
 
-                    actionBar.setTitle(Main.tr("Удалённые сообщения", "Deleted messages"));
-
-                    try {
-                        avatarContainer = new ChatAvatarContainer(context, (BaseFragment) null, false, resourcesProvider);
-                        avatarContainer.setOccupyStatusBar(!AndroidUtilities.isTablet());
-                        avatarContainer.setEnabled(false);
-                        actionBar.addView(avatarContainer, 0, LayoutHelper.createFrame(-2, -1.0f, 51, 56.0f, 0.0f, 40.0f, 0.0f));
-                    } catch (Throwable t) {
-                        avatarContainer = null;
-                    }
+                    String titleText = currentChat != null ? currentChat.title : (currentUser != null ? ContactsController.formatName(currentUser.first_name, currentUser.last_name) : Main.tr("Удалённые сообщения", "Deleted messages"));
+                    actionBar.setTitle(titleText);
+                    actionBar.setSubtitle(Main.tr("Удалённые сообщения", "Deleted messages"));
 
                     try {
                         ActionBarMenu dmfMenu = actionBar.createMenu();
-                        ActionBarMenuItem dmfOtherItem = dmfMenu.addItem(10, R.drawable.ic_ab_other);
-                        if (dmfOtherItem != null) {
-                            dmfOtherItem.addSubItem(11, R.drawable.msg_delete, tr("Очистить все удалёнки","Clear ALL deleted"));
+                        if (dmfMenu != null) {
+                            ActionBarMenuItem dmfOtherItem = dmfMenu.addItem(10, R.drawable.ic_ab_other);
+                            if (dmfOtherItem != null) {
+                                dmfOtherItem.addSubItem(11, R.drawable.msg_delete, tr("Очистить все удалёнки","Clear ALL deleted"));
+                            }
                         }
                     } catch (Throwable ignored) {}
-
-                    updateHeader(0);
                 }
 
                 contentView = new SizeNotifierFrameLayout(context);
@@ -3517,7 +3509,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
                 chatListView.setPadding(0, AndroidUtilities.dp(8) + topInset, 0, AndroidUtilities.dp(16));
                 chatListView.setLayoutManager(new LinearLayoutManager(context));
                 chatListView.setItemAnimator(null);
-                chatListView.setOnItemLongClickListener((view, position, x, y) -> showMessageMenu(view));
 
                 adapter = new DeletedAdapter(context, did, getCurrentAccount(), resourcesProvider);
                 chatListView.setAdapter(adapter);
@@ -3551,35 +3542,18 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
         private void updateHeader(int messageCount) {
-            String titleText;
-            if (currentChat != null) {
-                titleText = currentChat.title;
-            } else if (currentUser != null) {
-                titleText = ContactsController.formatName(currentUser.first_name, currentUser.last_name);
-            } else {
-                titleText = Main.tr("Удалённые сообщения", "Deleted messages");
-            }
-            if (actionBar != null && avatarContainer == null) {
+            if (actionBar == null) return;
+            try {
+                String titleText = currentChat != null ? currentChat.title : (currentUser != null ? ContactsController.formatName(currentUser.first_name, currentUser.last_name) : Main.tr("Удалённые сообщения", "Deleted messages"));
                 actionBar.setTitle(titleText);
-            }
-            if (avatarContainer != null) {
-                if (currentChat != null) {
-                    avatarContainer.setTitle(currentChat.title);
-                    avatarContainer.setChatAvatar(currentChat);
-                } else if (currentUser != null) {
-                    avatarContainer.setTitle(ContactsController.formatName(currentUser.first_name, currentUser.last_name));
-                    avatarContainer.setUserAvatar(currentUser);
-                } else {
-                    avatarContainer.setTitle(Main.tr("Удалённые сообщения", "Deleted messages"));
-                }
+                String sub = Main.tr("Удалённые сообщения", "Deleted messages");
                 if (loadingMessages) {
-                    avatarContainer.setSubtitle(LocaleController.getString(R.string.Loading));
-                } else {
-                    String sub = Main.tr("Удалённые сообщения", "Deleted messages");
-                    if (messageCount > 0) sub = sub + " (" + messageCount + ")";
-                    avatarContainer.setSubtitle(sub);
+                    sub = LocaleController.getString(R.string.Loading);
+                } else if (messageCount > 0) {
+                    sub = sub + " (" + messageCount + ")";
                 }
-            }
+                actionBar.setSubtitle(sub);
+            } catch (Throwable ignore) {}
         }
 
         private void reloadMessages() {
@@ -3600,40 +3574,6 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
                     emptyView.setVisibility(adapter.getItemCount() == 0 ? View.VISIBLE : View.GONE);
                 }
             });
-        }
-
-        private boolean showMessageMenu(View view) {
-            if (getParentActivity() == null) return false;
-            if (view instanceof ChatMessageCell) {
-                ChatMessageCell cell = (ChatMessageCell) view;
-                final MessageObject mo = cell.getMessageObject();
-                if (mo == null) return false;
-                final CharSequence text = mo.messageText != null ? mo.messageText : (mo.messageOwner != null ? mo.messageOwner.message : null);
-                ArrayList<String> items = new ArrayList<>();
-                final ArrayList<Runnable> actions = new ArrayList<>();
-                if (text != null && text.length() > 0) {
-                    items.add(LocaleController.getString(R.string.Copy));
-                    actions.add(() -> {
-                        AndroidUtilities.addToClipboard(text);
-                        try {
-                            BulletinFactory.of(DeletedMessagesFragment.this).createCopyBulletin(LocaleController.getString(R.string.TextCopied)).show();
-                        } catch (Throwable t) {
-                            Toast.makeText(getParentActivity(), LocaleController.getString(R.string.TextCopied), Toast.LENGTH_SHORT).show();
-                        }
-                    });
-                }
-                if (!items.isEmpty()) {
-                    AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-                    builder.setItems(items.toArray(new CharSequence[0]), (dialog, which) -> {
-                        if (which >= 0 && which < actions.size()) {
-                            actions.get(which).run();
-                        }
-                    });
-                    showDialog(builder.create());
-                    return true;
-                }
-            }
-            return false;
         }
 
         private void openProfile(long peerId) {
@@ -3951,29 +3891,24 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         }
 
         @Override
-
         public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-
-            View view;
-
-            if (viewType == VIEW_TYPE_DATE) {
-
-                view = new org.telegram.ui.Cells.ChatActionCell(context, false, resourcesProvider);
-
-            } else {
-
-                ChatMessageCell cell = new ChatMessageCell(context, currentAccount);
-
-                cell.setAllowAssistant(false);
-
-                view = cell;
-
+            try {
+                View view;
+                if (viewType == VIEW_TYPE_DATE) {
+                    view = new org.telegram.ui.Cells.ChatActionCell(context, false, resourcesProvider);
+                } else {
+                    ChatMessageCell cell = new ChatMessageCell(context, currentAccount);
+                    cell.setAllowAssistant(false);
+                    view = cell;
+                }
+                view.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                return new RecyclerListView.Holder(view);
+            } catch (Throwable t) {
+                err("onCreateViewHolder", new Exception(t));
+                View fallback = new View(context);
+                fallback.setLayoutParams(new RecyclerView.LayoutParams(1, 1));
+                return new RecyclerListView.Holder(fallback);
             }
-
-            view.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
-            return new RecyclerListView.Holder(view);
-
         }
 
         @Override
