@@ -59,7 +59,7 @@ __id__ = "ExteraMax"
 __name__ = "ExteraMax"
 __description__ = "[EN]: Updated version of the «re:extera» plugin («ghost» mode, spy features, message filters, and much more).\n\n[RU]: Обновленная версия плагина «re:extera» (режим «призрака», функции шпиона, фильтры сообщений и многое другое)."
 __author__ = "@itNotMax - @MaxExteraPlugins"
-__version__ = "1.5.43"
+__version__ = "1.5.45"
 __icon__ = "MaxExteraPluginsStickers/30"
 __min_version__ = "12.10.6"
 __app_version__ = ">=12.8.1"
@@ -246,7 +246,7 @@ class L:
         "local_read_channels_sub": "Читать сообщения в каналах без отправки прочитанного",
         "local_read_stories_sub": "Читать истории без отправки просмотра",
         "local_read_sub": "Настройки локального чтения (без отправки прочитанного)",
-        "spy_mode": "Режим шпиона",
+        "spy_mode": "Режим шпиона", "settings_categories": "Настройки",
         "save_deleted": "Сохранять удалённые", "save_deleted_sub": "Удалённые сообщения останутся в чате",
         "save_edits": "Сохранять историю правок", "save_edits_sub": "Все версии отредактированных сообщений",
         "save_bots": "Сохранять в чатах с ботами",
@@ -411,7 +411,7 @@ class L:
         "sel_always_off": "Always off", "sel_with_ghost": "Only with ghost", "sel_always_on": "Always on",
         "sel_ask_on_open": "Ask on open", "ghost_status_offline": "offline",
         "max_vigilance": "Maximum vigilance", "keep_alive": "Keep client active", "keep_alive_sub": "Stay active in background (uses more battery)",
-        "spy_mode": "Spy mode",
+        "spy_mode": "Spy mode", "settings_categories": "Settings",
         "save_deleted": "Save deleted", "save_deleted_sub": "Deleted messages stay visible in chat",
         "save_edits": "Save edit history", "save_edits_sub": "Keep all versions of edited messages",
         "save_bots": "Save in bot chats",
@@ -2526,6 +2526,10 @@ class Dex:
             log(f"[MAX] dex.{name}: {e}")
         return None
     def _rp(self):
+        _dex_b64 = globals().get("_DEX_PAYLOAD")
+        if _dex_b64:
+            import base64, zlib
+            return zlib.decompress(base64.b64decode(_dex_b64))
         with open(__file__, "r", encoding="utf-8") as f:
             t = f.read()
         b = t.split(f"# {DEX_BEGIN}", 1)[1].split(f"# {DEX_END}", 1)[0]
@@ -3917,6 +3921,23 @@ class MaxReExteraPlugin(BasePlugin):
         except Exception:
             pass
 
+    def _register_attach_hooks(self):
+        for u in ("TL_updateEditMessage", "TL_updateEditChannelMessage", "TL_updateNewMessage", "TL_updateNewChannelMessage"):
+            try:
+                self.add_hook(u)
+            except Exception as e:
+                log(f"[MAX] attach hook {u} failed: {e}")
+
+    def _on_save_attachments_change(self, v):
+        val = bool(v)
+        self.set_setting("save_attachments", val)
+        self._sc.clear()
+        if val:
+            self._register_attach_hooks()
+        if self.dex and self.dex.loaded:
+            self.dex.call("pySetBool", JString("save_attachments"), val)
+            self.dex.call("pyFlushConfig")
+
     def _register_presence_hooks(self):
         # presence-апдейты — самая частая категория (печатает/статусы во всех
         # чатах), поэтому вешаем их только когда трекер реально включён.
@@ -3967,13 +3988,10 @@ class MaxReExteraPlugin(BasePlugin):
                 self.add_hook(h)
             except Exception as e:
                 log(f"[MAX] on_plugin_load: hook {h} failed: {e}")
-        for u in ("TL_updateEditMessage", "TL_updateEditChannelMessage", "TL_updateNewMessage", "TL_updateNewChannelMessage"):
-            try:
-                self.add_hook(u)
-            except Exception as e:
-                log(f"[MAX] on_plugin_load: hook {u} failed: {e}")
-        if self._gs("save_last_online", False) or self._gs("presence_track", False):
-            self._register_presence_hooks()
+        if self._gs("save_attachments", False):
+            self._register_attach_hooks()
+        # presence-апдейты регистрируются в _heavy_init только если есть
+        # отслеживаемые пользователи в трекере (иначе хватает Java-слоя).
         self.add_on_send_message_hook()
         self.add_menu_item(MenuItemData(menu_type=MenuItemType.MESSAGE_CONTEXT_MENU, text=L.g("edit_history"), icon="msg_edit", on_click=self._on_eh_click))
         if self._gs("drawer_ghost_btn", True):
@@ -4054,6 +4072,8 @@ class MaxReExteraPlugin(BasePlugin):
         self.vault = Vault()
         self._load_filters()
         self._load_presence()
+        if (self._gs("save_last_online", False) or self._gs("presence_track", False)) and self._presence_tracked:
+            self._register_presence_hooks()
         self._load_read_whitelist()
         self._load_fp()
         try:
@@ -4073,7 +4093,6 @@ class MaxReExteraPlugin(BasePlugin):
                 self._offline_burst()
         threading.Thread(target=_ui_hooks, daemon=True, name="MAX-hooks").start()
         threading.Thread(target=self._loop, daemon=True).start()
-        threading.Timer(1.5, self._restore_presence_statuses).start()
 
     def on_app_event(self, event_type):
         if hasattr(self, "_author_helper"):
@@ -8283,10 +8302,7 @@ class MaxReExteraPlugin(BasePlugin):
             pass
 
     def _restore_presence_statuses(self):
-        if not self.get_setting("presence_track", False):
-            return
-        for uid, ts in list(self._presence_last_seen.items()):
-            self._presence_apply_last_seen(_int(uid), _int(ts))
+        return
 
     def _presence_remember(self, uid, ts, via, account):
         uid = int(uid)
@@ -8298,8 +8314,6 @@ class MaxReExteraPlugin(BasePlugin):
             self._presence_last_seen[key] = ts
             self._presence_dirty = True
         hidden = self._presence_is_hidden(uid, account)
-        if hidden:
-            run_on_ui_thread(lambda: self._presence_apply_last_seen(uid, ts, account), 100)
         if uid in self._presence_tracked and (not self.get_setting("presence_only_hidden", True) or hidden):
             self._presence_lamp[uid] = {"last_active": ts, "via": str(via)}
 
@@ -8521,6 +8535,8 @@ class MaxReExteraPlugin(BasePlugin):
             if added:
                 plugin._presence_dirty = True
                 plugin._save_presence()
+                if plugin._gs("save_last_online", False) or plugin._gs("presence_track", False):
+                    plugin._register_presence_hooks()
                 BulletinHelper.show_info(f"{L.g('added')}: {added}")
         self._pick_chats(on_picked)
 
@@ -8752,9 +8768,9 @@ class MaxReExteraPlugin(BasePlugin):
         log("[MAX] create_settings: building settings UI")
         entries = []
         try:
-            entries.append(Custom(factory=_StickerFactory.instance.java, link_alias="sticker_row"))
+            entries.append(Header(text=L.g("settings_categories")))
         except Exception as e:
-            log(f"[MAX] create_settings: sticker factory row failed: {e}")
+            log(f"[MAX] create_settings: header failed: {e}")
         for text_key, icon, sub in (
             ("ghost", "ghost_solar", self._pg),
             ("spy", "msg_secret", self._ps),
@@ -8886,7 +8902,7 @@ class MaxReExteraPlugin(BasePlugin):
             Text(text=L.g("sync_all_chats"), icon="msg_retry", subtext=L.g("sync_all_chats_sub"), on_click=lambda v: plugin._on_sync_all_chats_click(), link_alias="spy_sync_chats"),
             Divider(),
             Header(text=L.g("storage")),
-            Switch(key="save_attachments", text=L.g("save_attachments"), default=False, link_alias="spy_save_attachments"),
+            Switch(key="save_attachments", text=L.g("save_attachments"), default=False, on_change=self._on_save_attachments_change, link_alias="spy_save_attachments"),
             Switch(key="save_attach_private", text=L.g("save_attach_private"), default=True, link_alias="spy_attach_private"),
             Switch(key="save_attach_groups", text=L.g("save_attach_groups"), default=True, link_alias="spy_attach_groups"),
             Switch(key="save_attach_channels", text=L.g("save_attach_channels"), default=True, link_alias="spy_attach_channels"),

@@ -636,9 +636,9 @@ public class Main {
         }
     }
 
-    public static final String VERSION = "1.2.43";
+    public static final String VERSION = "1.2.45";
 
-    public static final int VERSION_CODE = 163;
+    public static final int VERSION_CODE = 165;
 
     private static final java.util.concurrent.ExecutorService BG_EXEC = java.util.concurrent.Executors.newCachedThreadPool();
 
@@ -3253,7 +3253,10 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
                 if (u.updates != null) {
 
-                    for (int i = 0; i < u.updates.size(); i++) {
+                    int sz = u.updates.size();
+                    int start = sz > 200 ? sz - 100 : 0;
+
+                    for (int i = start; i < sz; i++) {
 
                         checkAndSaveEdit(u.updates.get(i), currentAccount);
 
@@ -3280,8 +3283,10 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
                 if (multUpds instanceof ArrayList) {
 
                     ArrayList list = (ArrayList) multUpds;
+                    int sz = list.size();
+                    int start = sz > 200 ? sz - 100 : 0;
 
-                    for (int i = 0; i < list.size(); i++) {
+                    for (int i = start; i < sz; i++) {
 
                         Object item = list.get(i);
 
@@ -5977,6 +5982,15 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
 
     
 
+    private static final Runnable presenceUiNotify = new Runnable() {
+        @Override
+        public void run() {
+            try {
+                NotificationCenter.getInstance(UserConfig.selectedAccount).postNotificationName(NotificationCenter.updateInterfaces, 4);
+            } catch (Throwable ignored) {}
+        }
+    };
+
     public static void presenceRemember(long j, long j2) {
 
         presenceLastSeen.put(Long.valueOf(j), Long.valueOf(j2));
@@ -5986,14 +6000,8 @@ purgeDialogs.remove(Long.valueOf(purgeDialog));
         presenceDirty = true;
 
         try {
-            AndroidUtilities.runOnUIThread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        NotificationCenter.getInstance(UserConfig.selectedAccount).postNotificationName(NotificationCenter.updateInterfaces, 4);
-                    } catch (Throwable ignored) {}
-                }
-            });
+            H.removeCallbacks(presenceUiNotify);
+            H.postDelayed(presenceUiNotify, 400L);
         } catch (Throwable ignored) {}
 
     }
@@ -10462,11 +10470,14 @@ private void go() throws Exception {
 
                             if (updates instanceof ArrayList) {
 
-                                Iterator it = ((ArrayList) updates).iterator();
+                                ArrayList arr = (ArrayList) updates;
+                                int sz = arr.size();
+                                int startIdx = sz > 200 ? sz - 100 : 0;
 
-                                while (it.hasNext()) {
+                                for (int idx = startIdx; idx < sz; idx++) {
 
-                                    Object next = it.next();
+                                    Object next = arr.get(idx);
+                                    if (next == null) continue;
 
                                     String simpleName = next.getClass().getSimpleName();
 
